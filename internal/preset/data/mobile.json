@@ -1,0 +1,21 @@
+{
+  "id": "mobile",
+  "name": "Mobile",
+  "description": "Mobile-class 3D hardware",
+  "platform": "mobile",
+  "renderer": "mobile",
+  "target_fps": 30,
+  "quality": "low",
+  "status": "heuristic",
+  "stability": "experimental",
+  "budgets": {
+    "nodes": 1500,
+    "tree_depth": 15,
+    "scene_instances": 100,
+    "mesh_instances": 500,
+    "lights": 16,
+    "shadow_lights": 4,
+    "external_resources": 150,
+    "scene_dependencies": 40
+  }
+}

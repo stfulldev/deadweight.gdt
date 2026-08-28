@@ -1,0 +1,21 @@
+{
+  "id": "desktop",
+  "name": "Desktop",
+  "description": "Mid-range desktop hardware",
+  "platform": "desktop",
+  "renderer": "forward_plus",
+  "target_fps": 60,
+  "quality": "high",
+  "status": "heuristic",
+  "stability": "experimental",
+  "budgets": {
+    "nodes": 6000,
+    "tree_depth": 30,
+    "scene_instances": 500,
+    "mesh_instances": 2500,
+    "lights": 64,
+    "shadow_lights": 16,
+    "external_resources": 600,
+    "scene_dependencies": 160
+  }
+}

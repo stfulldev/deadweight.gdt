@@ -1,0 +1,21 @@
+{
+  "id": "steam-deck",
+  "name": "Steam Deck",
+  "description": "Steam Deck-class hardware",
+  "platform": "steam_deck",
+  "renderer": "forward_plus",
+  "target_fps": 60,
+  "quality": "balanced",
+  "status": "heuristic",
+  "stability": "experimental",
+  "budgets": {
+    "nodes": 3000,
+    "tree_depth": 20,
+    "scene_instances": 250,
+    "mesh_instances": 1000,
+    "lights": 32,
+    "shadow_lights": 8,
+    "external_resources": 300,
+    "scene_dependencies": 80
+  }
+}
