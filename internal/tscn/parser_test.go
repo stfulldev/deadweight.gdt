@@ -127,6 +127,31 @@ func TestParseLeavesAbsentShadowPropertyUnset(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsMultilineStringsAndQuotedPropertyNames(t *testing.T) {
+	t.Parallel()
+
+	input := "" +
+		"[gd_scene format=3]\n" +
+		"[sub_resource type=\"AnimationNodeBlendTree\" id=\"Tree\"]\n" +
+		"\"nodes/Animation 2/node\" = SubResource(\"Animation\")\n" +
+		"\"nodes/Animation 2/metadata\" = {\"label\": \"Line one\r\nLine two\"}\n" +
+		"[node name=\"Root\" type=\"Node3D\"]\n" +
+		"description = \"Dodge the\nCreeps\"\n" +
+		"[node name=\"Sun\" type=\"DirectionalLight3D\" parent=\".\"]\n" +
+		"\"shadow_enabled\" = true\n"
+
+	document, err := tscn.Parse(strings.NewReader(input), "real-world.tscn")
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if len(document.Nodes) != 2 {
+		t.Fatalf("len(Nodes) = %d, want 2", len(document.Nodes))
+	}
+	if sun := document.Nodes[1]; sun.ShadowEnabled == nil || !*sun.ShadowEnabled {
+		t.Fatalf("Sun = %#v, want quoted shadow_enabled=true", sun)
+	}
+}
+
 func TestParseRejectsMalformedOrUnsupportedScenes(t *testing.T) {
 	t.Parallel()
 
@@ -151,6 +176,7 @@ func TestParseRejectsMalformedOrUnsupportedScenes(t *testing.T) {
 		{name: "mismatched value", input: "[gd_scene format=3]\n[node name=\"Root\" type=\"Node\"]\nvalue = [1, 2)\n", want: "mismatched closing delimiter"},
 		{name: "bad shadow", input: "[gd_scene format=3]\n[node name=\"Root\" type=\"OmniLight3D\"]\nshadow_enabled = 1\n", want: "must be true or false"},
 		{name: "duplicate shadow", input: "[gd_scene format=3]\n[node name=\"Root\" type=\"OmniLight3D\"]\nshadow_enabled = true\nshadow_enabled = false\n", want: "duplicate shadow_enabled"},
+		{name: "quoted property without assignment", input: "[gd_scene format=3]\n[node name=\"Root\" type=\"Node\"]\n\"orphan property\"\n", want: "expected ="},
 		{name: "missing property value", input: "[gd_scene format=3]\n[node name=\"Root\" type=\"Node\"]\nvalue =\n", want: "has no value"},
 	}
 

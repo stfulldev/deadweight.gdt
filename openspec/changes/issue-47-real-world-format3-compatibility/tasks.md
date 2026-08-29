@@ -1,13 +1,13 @@
 ## 1. Format-3 Parser Compatibility
 
-- [ ] 1.1 Add lexer regression tests for literal LF, CRLF, and CR multiline strings, exact token content, following-token positions, multiline EOF, and post-line unsupported escapes; verify `go test ./internal/tscn -run 'TestLexer'` fails only for the missing behavior before implementation.
-- [ ] 1.2 Update the streaming string lexer to retain physical line endings and preserve typed malformed-string failures; verify the targeted lexer tests and existing fuzz seeds pass.
-- [ ] 1.3 Add parser regression tests for balanced unknown quoted properties, following sections, quoted names without assignments, and unchanged `shadow_enabled` semantics; update only section-body property-name acceptance and verify `go test ./internal/tscn` passes.
+- [x] 1.1 Add lexer regression tests for literal LF, CRLF, and CR multiline strings, exact token content, following-token positions, multiline EOF, and post-line unsupported escapes; verify `go test ./internal/tscn -run 'TestLexer'` fails only for the missing behavior before implementation.
+- [x] 1.2 Update the streaming string lexer to retain physical line endings and preserve typed malformed-string failures; verify the targeted lexer tests and existing fuzz seeds pass.
+- [x] 1.3 Add parser regression tests for balanced unknown quoted properties, following sections, quoted names without assignments, and unchanged `shadow_enabled` semantics; update only section-body property-name acceptance and verify `go test ./internal/tscn` passes.
 
 ## 2. Build Version Provenance
 
-- [ ] 2.1 Add composition-root tests for explicit linker precedence, semantic module versions with one leading `v`, pseudo-versions, empty/`(devel)` metadata, and the `dev` fallback; verify the new tests fail only for the missing resolver before implementation.
-- [ ] 2.2 Resolve the command version from explicit linker input and embedded Go build metadata without changing CLI/report packages or adding dependencies; verify `go test ./cmd/deadweight.gdt` and a local `go run ./cmd/deadweight.gdt --version` pass.
+- [x] 2.1 Add composition-root tests for explicit linker precedence, semantic module versions with one leading `v`, pseudo-versions, empty/`(devel)` metadata, and the `dev` fallback; verify the new tests fail only for the missing resolver before implementation.
+- [x] 2.2 Resolve the command version from explicit linker input and embedded Go build metadata without changing CLI/report packages or adding dependencies; verify `go test ./cmd/deadweight.gdt` and a local `go run ./cmd/deadweight.gdt --version` pass.
 - [ ] 2.3 Build with an explicit linker version and build/install the fixed source through versioned Go module metadata after its commit is available remotely; verify the explicit value wins, the module-derived value drops one leading `v`, and the immutable `v0.1.0` ref is unchanged.
 
 ## 3. Real-Project E2E Coverage and Documentation

@@ -419,7 +419,7 @@ func (state *parser) parseSectionBody(node *Node) error {
 		if current.typeID == tokenEOF || current.typeID == tokenLeftBracket {
 			return nil
 		}
-		if current.typeID != tokenIdentifier {
+		if current.typeID != tokenIdentifier && current.typeID != tokenString {
 			return newParseError(state.source, current.position, "expected property name or section header, found %s", current.describe())
 		}
 

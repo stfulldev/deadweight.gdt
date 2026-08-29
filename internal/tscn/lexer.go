@@ -106,7 +106,7 @@ func (scanner *lexer) readString(position Position) (token, error) {
 		case '"':
 			return token{typeID: tokenString, literal: value.String(), position: position}, nil
 		case '\n', '\r':
-			return token{}, newParseError(scanner.source, currentPosition, "unescaped newline in string")
+			value.WriteRune(current)
 		case '\\':
 			escaped, escapePosition, escapeErr := scanner.consumeRune()
 			if escapeErr == io.EOF {
