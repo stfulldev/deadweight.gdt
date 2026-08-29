@@ -30,4 +30,4 @@
 - [x] 6.1 Audit package imports and filesystem/process operations; verify resolution remains in `internal/project`, no code opens contents, prints, exits, scans for case recovery, or depends on Godot, network, parser, graph, report, CLI, OpenSpec, or Node.js runtime code.
 - [x] 6.2 Run `gofmt` and verify `go build ./...`, targeted project tests, `go test ./...`, `go test -race ./...`, and `go vet ./...` all pass.
 - [x] 6.3 Run `golangci-lint` at the CI-pinned version and `openspec validate issue-7-secure-path-resolution --strict`; verify zero lint issues and accurate task completion.
-- [ ] 6.4 Keep production code and tests in separate focused commits, push them plus OpenSpec progress to Draft PR #32, and verify the PR diff remains limited to issue #7 and its planning artifacts.
+- [x] 6.4 Keep production code and tests in separate focused commits, push them plus OpenSpec progress to Draft PR #32, and verify the PR diff remains limited to issue #7 and its planning artifacts.
