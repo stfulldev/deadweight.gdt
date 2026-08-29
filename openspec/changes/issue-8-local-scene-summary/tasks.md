@@ -30,4 +30,4 @@
 
 - [x] 6.1 Run the focused analysis tests plus `go test ./...`, `go test -race ./...`, `go vet ./...`, and the CI-pinned `golangci-lint`; verify every gate exits successfully without Godot, network, filesystem fixtures, Node.js, or OpenSpec in the shipped runtime graph.
 - [x] 6.2 Commit only `*_test.go` files and OpenSpec task-progress updates as `test: cover local scene summaries`, keeping the production implementation in the preceding feature commit; verify the two commits are separately reviewable and the test commit contains no production Go changes.
-- [ ] 6.3 Run `openspec validate issue-8-local-scene-summary --strict` and `git diff --check`, inspect the Draft PR #33 changed-file list, and verify the final change remains limited to issue #8 planning, production, and tests with resolved-child aggregation still absent.
+- [x] 6.3 Run `openspec validate issue-8-local-scene-summary --strict` and `git diff --check`, inspect the Draft PR #33 changed-file list, and verify the final change remains limited to issue #8 planning, production, and tests with resolved-child aggregation still absent.
