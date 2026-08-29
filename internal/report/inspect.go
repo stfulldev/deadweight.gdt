@@ -43,6 +43,9 @@ func Inspect(result application.InspectResult, options Options) (string, error) 
 
 	writeEvidence(&output, result.Analysis, style)
 	writeReliabilityWarning(&output, result.Analysis, style)
+	if err := writeTopContributors(&output, result, options); err != nil {
+		return "", err
+	}
 
 	return output.String(), nil
 }

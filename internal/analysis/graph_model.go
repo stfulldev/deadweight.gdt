@@ -106,6 +106,7 @@ func (coverage Coverage) Validate() error {
 type RecursiveResult struct {
 	Summary          ExpandedSummary
 	Graph            DependencyGraph
+	UniqueEvidence   []UniqueEvidence
 	ParsedSceneFiles int64
 	Status           AnalysisStatus
 	Reliability      Reliability
@@ -150,6 +151,7 @@ func cloneRecursiveResult(result RecursiveResult) RecursiveResult {
 	cloned := result
 	cloned.Summary = cloneExpandedSummary(result.Summary)
 	cloned.Graph = cloneDependencyGraph(result.Graph)
+	cloned.UniqueEvidence = cloneUniqueEvidence(result.UniqueEvidence)
 	cloned.Diagnostics = append([]diagnostic.Diagnostic(nil), result.Diagnostics...)
 
 	return cloned
