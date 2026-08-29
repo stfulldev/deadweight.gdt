@@ -155,12 +155,14 @@ shadow_enabled = true
 		t.Fatalf("Expand() error = %v", err)
 	}
 	wantMetrics := metrics.Values{
-		Nodes:          6,
-		TreeDepth:      6,
-		SceneInstances: 2,
-		MeshInstances:  1,
-		Lights:         1,
-		ShadowLights:   1,
+		Nodes:             6,
+		TreeDepth:         6,
+		SceneInstances:    2,
+		MeshInstances:     1,
+		Lights:            1,
+		ShadowLights:      1,
+		ExternalResources: 3,
+		SceneDependencies: 2,
 	}
 	if summary.Metrics != wantMetrics {
 		t.Fatalf("Metrics = %#v, want %#v", summary.Metrics, wantMetrics)
@@ -243,10 +245,12 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 		t.Fatalf("first Expand() error = %v", err)
 	}
 	wantMetrics := metrics.Values{
-		Nodes:          201,
-		TreeDepth:      3,
-		SceneInstances: 200,
-		MeshInstances:  100,
+		Nodes:             201,
+		TreeDepth:         3,
+		SceneInstances:    200,
+		MeshInstances:     100,
+		ExternalResources: 2,
+		SceneDependencies: 2,
 	}
 	if first.Metrics != wantMetrics || first.Coverage != (SceneInstanceCoverage{Resolved: 200}) {
 		t.Fatalf("first summary = %#v / %#v", first.Metrics, first.Coverage)
@@ -331,6 +335,9 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 	}
 	if occurrences(summary.ExternalResources, shared.Canonical) != 1 || occurrences(summary.ExternalResources, asset.Canonical) != 1 {
 		t.Fatalf("resource union = %#v", summary.ExternalResources)
+	}
+	if summary.Metrics.ExternalResources != 4 || summary.Metrics.SceneDependencies != 3 {
+		t.Fatalf("unique metrics = %#v", summary.Metrics)
 	}
 	for _, path := range []project.ResolvedPath{root, left, right, shared} {
 		requireMemorySceneEffects(t, loader, path, 1)
@@ -422,7 +429,10 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expand() error = %v", err)
 	}
-	if summary.Metrics != (metrics.Values{Nodes: 13, TreeDepth: 2, SceneInstances: 12, MeshInstances: 1}) {
+	if summary.Metrics != (metrics.Values{
+		Nodes: 13, TreeDepth: 2, SceneInstances: 12, MeshInstances: 1,
+		ExternalResources: 10, SceneDependencies: 2,
+	}) {
 		t.Fatalf("Metrics = %#v", summary.Metrics)
 	}
 	if summary.Coverage != (SceneInstanceCoverage{Resolved: 1, Unresolved: 11}) {
@@ -492,7 +502,10 @@ func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.
 	if err != nil {
 		t.Fatalf("Expand() error = %v", err)
 	}
-	if summary.Metrics != (metrics.Values{Nodes: 3, TreeDepth: 1, SceneInstances: 1, MeshInstances: 1}) {
+	if summary.Metrics != (metrics.Values{
+		Nodes: 3, TreeDepth: 1, SceneInstances: 1, MeshInstances: 1,
+		ExternalResources: 1, SceneDependencies: 1,
+	}) {
 		t.Fatalf("Metrics = %#v", summary.Metrics)
 	}
 	if !summary.DepthPartial || len(summary.ParentFindings) != 1 || summary.ParentFindings[0].DeclaringScene != root.Canonical {
@@ -812,7 +825,10 @@ func TestRecursiveAnalyzerUsesRealProjectResolverAndParsedScenes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvalSymlinks(asset) error = %v", err)
 	}
-	if summary.Metrics != (metrics.Values{Nodes: 2, TreeDepth: 2, SceneInstances: 1, MeshInstances: 1}) {
+	if summary.Metrics != (metrics.Values{
+		Nodes: 2, TreeDepth: 2, SceneInstances: 1, MeshInstances: 1,
+		ExternalResources: 2, SceneDependencies: 1,
+	}) {
 		t.Fatalf("Metrics = %#v", summary.Metrics)
 	}
 	if !reflect.DeepEqual(summary.Dependencies, []string{canonicalChild}) {

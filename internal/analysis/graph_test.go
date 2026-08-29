@@ -93,7 +93,9 @@ func TestRecursiveAnalyzerBuildsExactChainGraph(t *testing.T) {
 	if !reflect.DeepEqual(result.Summary.Dependencies, wantDependencies) {
 		t.Fatalf("Dependencies = %#v, want %#v", result.Summary.Dependencies, wantDependencies)
 	}
-	if result.Summary.Metrics != (metrics.Values{Nodes: 3, TreeDepth: 3, SceneInstances: 2}) {
+	if result.Summary.Metrics != (metrics.Values{
+		Nodes: 3, TreeDepth: 3, SceneInstances: 2, ExternalResources: 2, SceneDependencies: 2,
+	}) {
 		t.Fatalf("Metrics = %#v", result.Summary.Metrics)
 	}
 	if result.ParsedSceneFiles != 3 {
@@ -148,7 +150,10 @@ func TestRecursiveAnalyzerCompactsOneHundredRepeatedGraphEdges(t *testing.T) {
 	if !edge.Resolved || edge.Kind != EdgeInstance || edge.ToCanonical != child.Canonical || edge.Occurrences != 100 {
 		t.Fatalf("Edge = %#v", edge)
 	}
-	if result.Summary.Metrics != (metrics.Values{Nodes: 101, TreeDepth: 2, SceneInstances: 100, MeshInstances: 100}) {
+	if result.Summary.Metrics != (metrics.Values{
+		Nodes: 101, TreeDepth: 2, SceneInstances: 100, MeshInstances: 100,
+		ExternalResources: 1, SceneDependencies: 1,
+	}) {
 		t.Fatalf("Metrics = %#v", result.Summary.Metrics)
 	}
 	if result.ParsedSceneFiles != 2 || len(builds) != 2 || len(resolver.calls) != 1 {
@@ -365,7 +370,9 @@ func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(
 	if !reflect.DeepEqual(result.Summary.Dependencies, wantDependencies) {
 		t.Fatalf("Dependencies = %#v, want %#v", result.Summary.Dependencies, wantDependencies)
 	}
-	if result.Summary.Metrics != (metrics.Values{Nodes: 2, TreeDepth: 2, SceneInstances: 1}) || result.Summary.Coverage.Unresolved != 1 {
+	if result.Summary.Metrics != (metrics.Values{
+		Nodes: 2, TreeDepth: 2, SceneInstances: 1, ExternalResources: 4, SceneDependencies: 3,
+	}) || result.Summary.Coverage.Unresolved != 1 {
 		t.Fatalf("inherited metrics were applied exactly: %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
 	}
 	if result.ParsedSceneFiles != 4 {
@@ -595,8 +602,10 @@ func TestRecursiveAnalyzerGraphUsesRealResolverForRelativeInheritance(t *testing
 	if result.ParsedSceneFiles != 3 {
 		t.Fatalf("ParsedSceneFiles = %d, want 3", result.ParsedSceneFiles)
 	}
-	if result.Summary.Metrics.MeshInstances != 0 || result.Summary.Metrics.SceneDependencies != 0 {
-		t.Fatalf("deferred/final metrics leaked = %#v", result.Summary.Metrics)
+	if result.Summary.Metrics.MeshInstances != 0 ||
+		result.Summary.Metrics.ExternalResources != 2 ||
+		result.Summary.Metrics.SceneDependencies != 2 {
+		t.Fatalf("final metrics = %#v", result.Summary.Metrics)
 	}
 }
 
