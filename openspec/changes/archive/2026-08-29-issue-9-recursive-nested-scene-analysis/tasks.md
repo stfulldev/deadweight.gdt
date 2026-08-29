@@ -41,4 +41,4 @@
 
 - [x] 7.1 Run focused analysis tests plus `go test ./...`, `go test -race ./...`, `go vet ./...`, and CI-pinned golangci-lint v2.12.0; verify every gate passes with deterministic output and no runtime dependency on Godot, network, Node.js, OpenSpec, or persistent caches.
 - [x] 7.2 Commit only `*_test.go` files and OpenSpec task-progress updates as `test: cover recursive scene expansion`, preserving the preceding production feature commit; verify the commits are independently reviewable and the test commit contains no production Go changes.
-- [ ] 7.3 Run `openspec validate issue-9-recursive-nested-scene-analysis --strict` and `git diff --check`, inspect Draft PR #34 through the GitHub connector, and verify its diff remains limited to issue #9 planning, recursive analysis production, and tests with graph/CLI/report/inheritance expansion absent.
+- [x] 7.3 Run `openspec validate issue-9-recursive-nested-scene-analysis --strict` and `git diff --check`, inspect Draft PR #34 through the GitHub connector, and verify its diff remains limited to issue #9 planning, recursive analysis production, and tests with graph/CLI/report/inheritance expansion absent.
