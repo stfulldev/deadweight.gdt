@@ -195,6 +195,7 @@ func TestBuildLocalSummarySeparatesInheritedRootOverridesAndLocalAdditions(t *te
 [node name="Body" parent="."]
 [node name="Hat" type="MeshInstance3D" parent="Body"]
 [node name="Weapon" parent="Body" instance=ExtResource("2_weapon")]
+[editable path="Body"]
 `)
 
 	wantMetrics := metrics.Values{Nodes: 1, TreeDepth: 3, SceneInstances: 1, MeshInstances: 1}
@@ -209,6 +210,9 @@ func TestBuildLocalSummarySeparatesInheritedRootOverridesAndLocalAdditions(t *te
 	}
 	if len(summary.Nodes) != 1 || summary.Nodes[0].Name != "Hat" || len(summary.Mounts) != 1 || summary.Mounts[0].Name != "Weapon" {
 		t.Fatalf("Nodes/Mounts = %#v/%#v", summary.Nodes, summary.Mounts)
+	}
+	if !summary.HasEditable {
+		t.Fatal("HasEditable = false, want retained editable evidence")
 	}
 }
 

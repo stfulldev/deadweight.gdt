@@ -437,7 +437,7 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 	}) {
 		t.Fatalf("Metrics = %#v", summary.Metrics)
 	}
-	if summary.Coverage != (SceneInstanceCoverage{Resolved: 1, Unresolved: 11}) {
+	if summary.Coverage != (SceneInstanceCoverage{Resolved: 2, Unresolved: 10}) {
 		t.Fatalf("Coverage = %#v", summary.Coverage)
 	}
 	wantClassifications := map[TargetClassification]int{
@@ -463,7 +463,7 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 		t.Fatalf("InheritedTargets = %#v", summary.InheritedTargets)
 	}
 	inheritedEvidence := summary.InheritedTargets[0]
-	if inheritedEvidence.TargetCanonical != inherited.Canonical || inheritedEvidence.BaseCanonical != base.Canonical || inheritedEvidence.Occurrences != 1 || inheritedEvidence.Classification != TargetInheritedScene {
+	if inheritedEvidence.DeclaringScene != inherited.Canonical || inheritedEvidence.BaseCanonical != base.Canonical || inheritedEvidence.BaseClassification != TargetUnavailableScene || inheritedEvidence.BaseResolutionReason != project.ResolutionFilesystem || inheritedEvidence.Occurrences != 1 || inheritedEvidence.Classification != TargetInheritedScene {
 		t.Fatalf("inherited evidence = %#v", inheritedEvidence)
 	}
 	wantDependencies := []string{inherited.Canonical, wrongType.Canonical}
@@ -476,11 +476,396 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 	}
 	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
 		result.Coverage != (Coverage{
-			ResolvedSceneInstances: 1, UnresolvedSceneInstances: 11,
+			ResolvedSceneInstances: 2, UnresolvedSceneInstances: 10,
 			ParsedSceneFiles: 3, InheritedScenes: 1,
 		}) || len(result.Diagnostics) != 11 {
 		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
 	}
+}
+
+func TestRecursiveAnalyzerAppliesResolvedInheritedBaseWithLocalAdditions(t *testing.T) {
+	rootDir := t.TempDir()
+	derived := testScenePath(rootDir, "derived.tscn")
+	base := testScenePath(rootDir, "base.tscn")
+	nested := testScenePath(rootDir, "nested.tscn")
+	resolver := &memoryResolver{results: map[string]project.Resolution{
+		resolverKey(derived.Canonical, "base.tscn"):   resolvedResource("base.tscn", base),
+		resolverKey(derived.Canonical, "nested.tscn"): resolvedResource("nested.tscn", nested),
+	}}
+	loader := &memorySceneEffects{
+		sources: map[string]string{
+			derived.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="base.tscn" id="1_base"]
+[ext_resource type="PackedScene" path="nested.tscn" id="2_nested"]
+[node name="Derived" instance=ExtResource("1_base")]
+[node name="Body" parent="."]
+[node name="Hat" type="MeshInstance3D" parent="Body"]
+[node name="Nested" parent="Body" instance=ExtResource("2_nested")]
+[editable path="Body"]
+`,
+			base.Canonical: `[gd_scene format=3]
+[node name="Base" type="Node3D"]
+[node name="Body" type="MeshInstance3D" parent="."]
+[node name="Sun" type="OmniLight3D" parent="Body"]
+shadow_enabled = true
+`,
+			nested.Canonical: `[gd_scene format=3]
+[node name="Nested" type="MeshInstance3D"]
+`,
+		},
+		errors: map[string]error{},
+	}
+	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+	result, err := analyzer.Analyze(derived)
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+	wantMetrics := metrics.Values{
+		Nodes: 5, TreeDepth: 3, SceneInstances: 1, MeshInstances: 3,
+		Lights: 1, ShadowLights: 1, ExternalResources: 2, SceneDependencies: 2,
+	}
+	if result.Summary.Metrics != wantMetrics || result.Summary.Coverage != (SceneInstanceCoverage{Resolved: 1}) {
+		t.Fatalf("summary = %#v / %#v, want %#v", result.Summary.Metrics, result.Summary.Coverage, wantMetrics)
+	}
+	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
+		result.Coverage != (Coverage{ResolvedSceneInstances: 1, ParsedSceneFiles: 3, InheritedScenes: 1}) {
+		t.Fatalf("completeness = %q/%q/%#v", result.Status, result.Reliability, result.Coverage)
+	}
+	if len(result.Summary.InheritedTargets) != 1 {
+		t.Fatalf("InheritedTargets = %#v", result.Summary.InheritedTargets)
+	}
+	evidence := result.Summary.InheritedTargets[0]
+	if evidence.DeclaringScene != derived.Canonical || evidence.BaseResourceID != "1_base" ||
+		evidence.BaseRawTarget != "base.tscn" || evidence.BaseCanonical != base.Canonical ||
+		evidence.BaseResolutionReason != project.ResolutionResolved || evidence.BaseClassification != "" ||
+		!evidence.HasOverrideStubs || !evidence.HasEditable || evidence.Occurrences != 1 ||
+		evidence.InheritedRootPosition.Line != 4 {
+		t.Fatalf("inheritance evidence = %#v", evidence)
+	}
+	if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != diagnostic.CodeInheritedScene ||
+		result.Diagnostics[0].Resource != base.Display || result.Diagnostics[0].Occurrences != 1 {
+		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+	for _, path := range []project.ResolvedPath{derived, base, nested} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+}
+
+func TestRecursiveAnalyzerRetainsOneRootForUnsupportedInheritedBases(t *testing.T) {
+	tests := []struct {
+		name           string
+		raw            string
+		rootInstance   string
+		resolution     project.ResolutionReason
+		extension      string
+		unreadable     bool
+		classification TargetClassification
+		wantReason     project.ResolutionReason
+		wantRaw        string
+	}{
+		{name: "missing", raw: "missing.tscn", resolution: project.ResolutionMissing, classification: TargetUnresolvedPath, wantReason: project.ResolutionMissing, wantRaw: "missing.tscn"},
+		{name: "unreadable", raw: "locked.tscn", extension: ".tscn", unreadable: true, classification: TargetUnavailableScene, wantReason: project.ResolutionFilesystem, wantRaw: "locked.tscn"},
+		{name: "imported glb", raw: "model.glb", extension: ".glb", classification: TargetImportedScene, wantReason: project.ResolutionResolved, wantRaw: "model.glb"},
+		{name: "binary scn", raw: "model.scn", extension: ".scn", classification: TargetImportedScene, wantReason: project.ResolutionResolved, wantRaw: "model.scn"},
+		{name: "sub resource", rootInstance: `SubResource("Scene_1")`, classification: TargetSubResource, wantRaw: "Scene_1"},
+		{name: "uid", raw: "uid://base", resolution: project.ResolutionUIDOnly, classification: TargetUnresolvedPath, wantReason: project.ResolutionUIDOnly, wantRaw: "uid://base"},
+		{name: "user data", raw: "user://base.tscn", resolution: project.ResolutionUserData, classification: TargetUnresolvedPath, wantReason: project.ResolutionUserData, wantRaw: "user://base.tscn"},
+		{name: "outside project", raw: "../base.tscn", resolution: project.ResolutionOutsideProject, classification: TargetUnresolvedPath, wantReason: project.ResolutionOutsideProject, wantRaw: "../base.tscn"},
+		{name: "unsupported resource", raw: "base.res", extension: ".res", classification: TargetUnsupportedScene, wantReason: project.ResolutionResolved, wantRaw: "base.res"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rootDir := t.TempDir()
+			root := testScenePath(rootDir, "derived.tscn")
+			target := testResourcePath(rootDir, "base"+test.extension)
+			resolver := &memoryResolver{results: map[string]project.Resolution{}}
+			instance := test.rootInstance
+			source := "[gd_scene format=3]\n"
+			if instance == "" {
+				instance = `ExtResource("1_base")`
+				source += fmt.Sprintf("[ext_resource type=\"PackedScene\" path=\"%s\" id=\"1_base\"]\n", test.raw)
+				resolution := project.Resolution{Reason: test.resolution, Path: project.ResolvedPath{Original: test.raw}}
+				if test.extension != "" {
+					resolution = resolvedResource(test.raw, target)
+				}
+				resolver.results[resolverKey(root.Canonical, test.raw)] = resolution
+			}
+			source += fmt.Sprintf("[node name=\"Derived\" instance=%s]\n", instance)
+			source += "[node name=\"Local\" type=\"MeshInstance3D\" parent=\".\"]\n"
+			loader := &memorySceneEffects{
+				sources: map[string]string{root.Canonical: source},
+				errors:  map[string]error{},
+			}
+			if test.unreadable {
+				loader.errors[target.Canonical] = errors.New("permission denied")
+			}
+			analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+			result, err := analyzer.Analyze(root)
+			if err != nil {
+				t.Fatalf("Analyze() error = %v", err)
+			}
+			wantExternal := int64(1)
+			if test.rootInstance != "" {
+				wantExternal = 0
+			}
+			if result.Summary.Metrics != (metrics.Values{
+				Nodes: 2, TreeDepth: 2, MeshInstances: 1, ExternalResources: wantExternal,
+			}) || result.Summary.Coverage != (SceneInstanceCoverage{}) {
+				t.Fatalf("summary = %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
+			}
+			if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
+				result.Coverage != (Coverage{ParsedSceneFiles: 1, InheritedScenes: 1}) {
+				t.Fatalf("completeness = %q/%q/%#v", result.Status, result.Reliability, result.Coverage)
+			}
+			if len(result.Summary.InheritedTargets) != 1 {
+				t.Fatalf("InheritedTargets = %#v", result.Summary.InheritedTargets)
+			}
+			evidence := result.Summary.InheritedTargets[0]
+			if evidence.BaseClassification != test.classification || evidence.BaseResolutionReason != test.wantReason ||
+				evidence.BaseRawTarget != test.wantRaw || evidence.Occurrences != 1 {
+				t.Fatalf("evidence = %#v", evidence)
+			}
+			if test.extension != "" && evidence.BaseCanonical != target.Canonical {
+				t.Fatalf("BaseCanonical = %q, want %q", evidence.BaseCanonical, target.Canonical)
+			}
+			if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != diagnostic.CodeInheritedScene {
+				t.Fatalf("diagnostics = %#v", result.Diagnostics)
+			}
+			requireMemorySceneEffects(t, loader, root, 1)
+			if test.unreadable && (loader.calls[target.Canonical] != 1 || loader.parses[target.Canonical] != 0) {
+				t.Fatalf("unreadable effects = %#v/%#v", loader.calls, loader.parses)
+			}
+		})
+	}
+}
+
+func TestRecursiveAnalyzerMultipliesRepeatedInheritedSummaryAndOwnsEvidence(t *testing.T) {
+	rootDir := t.TempDir()
+	root := testScenePath(rootDir, "root.tscn")
+	derived := testScenePath(rootDir, "derived.tscn")
+	base := testScenePath(rootDir, "base.tscn")
+	resolver := &memoryResolver{results: map[string]project.Resolution{
+		resolverKey(root.Canonical, "derived.tscn"): resolvedResource("derived.tscn", derived),
+		resolverKey(derived.Canonical, "base.tscn"): resolvedResource("base.tscn", base),
+	}}
+	var mounts strings.Builder
+	for index := 0; index < 100; index++ {
+		fmt.Fprintf(&mounts, "[node name=\"Derived%d\" parent=\".\" instance=ExtResource(\"1_derived\")]\n", index)
+	}
+	loader := &memorySceneEffects{
+		sources: map[string]string{
+			root.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="derived.tscn" id="1_derived"]
+[node name="Root" type="Node3D"]
+` + mounts.String(),
+			derived.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="base.tscn" id="1_base"]
+[node name="Derived" instance=ExtResource("1_base")]
+`,
+			base.Canonical: `[gd_scene format=3]
+[node name="Base" type="MeshInstance3D"]
+`,
+		},
+		errors: map[string]error{},
+	}
+	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+	first, err := analyzer.Analyze(root)
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+	if first.Summary.Metrics != (metrics.Values{
+		Nodes: 101, TreeDepth: 2, SceneInstances: 100, MeshInstances: 100,
+		ExternalResources: 2, SceneDependencies: 2,
+	}) || first.Summary.Coverage != (SceneInstanceCoverage{Resolved: 100}) {
+		t.Fatalf("summary = %#v/%#v", first.Summary.Metrics, first.Summary.Coverage)
+	}
+	if first.Coverage != (Coverage{ResolvedSceneInstances: 100, ParsedSceneFiles: 3, InheritedScenes: 100}) ||
+		len(first.Summary.InheritedTargets) != 1 || first.Summary.InheritedTargets[0].Occurrences != 100 ||
+		len(first.Diagnostics) != 1 || first.Diagnostics[0].Occurrences != 100 {
+		t.Fatalf("repeated evidence = %#v/%#v/%#v", first.Coverage, first.Summary.InheritedTargets, first.Diagnostics)
+	}
+	for _, path := range []project.ResolvedPath{root, derived, base} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+
+	wantSecond := cloneRecursiveResult(first)
+	first.Summary.InheritedTargets[0].BaseCanonical = "mutated"
+	first.Diagnostics[0].Resource = "mutated"
+	first.Summary.Dependencies[0] = "mutated"
+	second, err := analyzer.Analyze(root)
+	if err != nil {
+		t.Fatalf("second Analyze() error = %v", err)
+	}
+	if !reflect.DeepEqual(second, wantSecond) {
+		t.Fatalf("caller mutation changed later result:\nsecond: %#v\nwant: %#v", second, wantSecond)
+	}
+}
+
+func TestRecursiveAnalyzerComposesTransitiveInheritance(t *testing.T) {
+	rootDir := t.TempDir()
+	a := testScenePath(rootDir, "a.tscn")
+	b := testScenePath(rootDir, "b.tscn")
+	c := testScenePath(rootDir, "c.tscn")
+	resolver := &memoryResolver{results: map[string]project.Resolution{
+		resolverKey(c.Canonical, "b.tscn"): resolvedResource("b.tscn", b),
+		resolverKey(b.Canonical, "a.tscn"): resolvedResource("a.tscn", a),
+	}}
+	loader := &memorySceneEffects{
+		sources: map[string]string{
+			a.Canonical: `[gd_scene format=3]
+[node name="A" type="MeshInstance3D"]
+`,
+			b.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="a.tscn" id="1_base"]
+[node name="B" instance=ExtResource("1_base")]
+[node name="Lamp" type="OmniLight3D" parent="."]
+`,
+			c.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="b.tscn" id="1_base"]
+[node name="C" instance=ExtResource("1_base")]
+[node name="Mesh" type="MeshInstance3D" parent="."]
+`,
+		},
+		errors: map[string]error{},
+	}
+	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+	result, err := analyzer.Analyze(c)
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+	if result.Summary.Metrics != (metrics.Values{
+		Nodes: 3, TreeDepth: 2, MeshInstances: 2, Lights: 1,
+		ExternalResources: 2, SceneDependencies: 2,
+	}) || result.Summary.Coverage != (SceneInstanceCoverage{}) {
+		t.Fatalf("summary = %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
+	}
+	if result.Coverage != (Coverage{ParsedSceneFiles: 3, InheritedScenes: 2}) ||
+		len(result.Summary.InheritedTargets) != 2 || len(result.Diagnostics) != 2 {
+		t.Fatalf("transitive evidence = %#v/%#v/%#v", result.Coverage, result.Summary.InheritedTargets, result.Diagnostics)
+	}
+	for _, path := range []project.ResolvedPath{a, b, c} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+}
+
+func TestRecursiveAnalyzerReusesInheritedBaseAcrossDiamond(t *testing.T) {
+	rootDir := t.TempDir()
+	root := testScenePath(rootDir, "root.tscn")
+	left := testScenePath(rootDir, "left.tscn")
+	right := testScenePath(rootDir, "right.tscn")
+	base := testScenePath(rootDir, "base.tscn")
+	resolver := &memoryResolver{results: map[string]project.Resolution{
+		resolverKey(root.Canonical, "left.tscn"):  resolvedResource("left.tscn", left),
+		resolverKey(root.Canonical, "right.tscn"): resolvedResource("right.tscn", right),
+		resolverKey(left.Canonical, "base.tscn"):  resolvedResource("base.tscn", base),
+		resolverKey(right.Canonical, "base.tscn"): resolvedResource("base.tscn", base),
+	}}
+	derivedSource := func(name string) string {
+		return fmt.Sprintf(`[gd_scene format=3]
+[ext_resource type="PackedScene" path="base.tscn" id="1_base"]
+[node name="%s" instance=ExtResource("1_base")]
+`, name)
+	}
+	loader := &memorySceneEffects{
+		sources: map[string]string{
+			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_left", "left.tscn"}, {"2_right", "right.tscn"}}),
+			left.Canonical:  derivedSource("Left"),
+			right.Canonical: derivedSource("Right"),
+			base.Canonical: `[gd_scene format=3]
+[node name="Base" type="MeshInstance3D"]
+`,
+		},
+		errors: map[string]error{},
+	}
+	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+	result, err := analyzer.Analyze(root)
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+	if result.Summary.Metrics != (metrics.Values{
+		Nodes: 3, TreeDepth: 2, SceneInstances: 2, MeshInstances: 2,
+		ExternalResources: 3, SceneDependencies: 3,
+	}) || result.Summary.Coverage != (SceneInstanceCoverage{Resolved: 2}) {
+		t.Fatalf("summary = %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
+	}
+	if result.Coverage != (Coverage{ResolvedSceneInstances: 2, ParsedSceneFiles: 4, InheritedScenes: 2}) ||
+		len(result.Summary.InheritedTargets) != 2 || len(result.Diagnostics) != 2 {
+		t.Fatalf("diamond evidence = %#v/%#v/%#v", result.Coverage, result.Summary.InheritedTargets, result.Diagnostics)
+	}
+	for _, canonical := range []string{left.Canonical, right.Canonical, base.Canonical} {
+		if occurrences(result.Summary.ExternalResources, canonical) != 1 {
+			t.Errorf("resource %q occurrences = %d", canonical, occurrences(result.Summary.ExternalResources, canonical))
+		}
+	}
+	for _, path := range []project.ResolvedPath{root, left, right, base} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+}
+
+func TestRecursiveAnalyzerRejectsMalformedInheritedBaseAndInheritanceCycle(t *testing.T) {
+	t.Run("malformed base", func(t *testing.T) {
+		rootDir := t.TempDir()
+		root := testScenePath(rootDir, "root.tscn")
+		base := testScenePath(rootDir, "base.tscn")
+		resolver := &memoryResolver{results: map[string]project.Resolution{
+			resolverKey(root.Canonical, "base.tscn"): resolvedResource("base.tscn", base),
+		}}
+		loader := &memorySceneEffects{
+			sources: map[string]string{
+				root.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="base.tscn" id="1_base"]
+[node name="Root" instance=ExtResource("1_base")]
+`,
+				base.Canonical: "not a scene",
+			},
+			errors: map[string]error{},
+		}
+		analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+		result, err := analyzer.Analyze(root)
+		if err == nil || !reflect.DeepEqual(result, RecursiveResult{}) {
+			t.Fatalf("Analyze() = %#v, %v; want fatal zero result", result, err)
+		}
+		if code, ok := diagnostic.CodeOf(err); !ok || code != diagnostic.CodeInvalidTSCNRoot {
+			t.Fatalf("diagnostic code = %q, %v", code, ok)
+		}
+	})
+
+	t.Run("inheritance cycle", func(t *testing.T) {
+		rootDir := t.TempDir()
+		a := testScenePath(rootDir, "a.tscn")
+		b := testScenePath(rootDir, "b.tscn")
+		resolver := &memoryResolver{results: map[string]project.Resolution{
+			resolverKey(a.Canonical, "b.tscn"): resolvedResource("b.tscn", b),
+			resolverKey(b.Canonical, "a.tscn"): resolvedResource("a.tscn", a),
+		}}
+		loader := &memorySceneEffects{
+			sources: map[string]string{
+				a.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="b.tscn" id="1_base"]
+[node name="A" instance=ExtResource("1_base")]
+`,
+				b.Canonical: `[gd_scene format=3]
+[ext_resource type="PackedScene" path="a.tscn" id="1_base"]
+[node name="B" instance=ExtResource("1_base")]
+`,
+			},
+			errors: map[string]error{},
+		}
+		analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+
+		result, err := analyzer.Analyze(a)
+		cycle := requireCycle(t, result, err)
+		if !reflect.DeepEqual(cycle.Canonical, []string{a.Canonical, b.Canonical, a.Canonical}) {
+			t.Fatalf("cycle = %#v", cycle)
+		}
+	})
 }
 
 func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.T) {
@@ -765,13 +1150,39 @@ func TestEvidenceOverflowDoesNotMutateSummaryBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:    "inherited coverage",
-			builder: summaryBuilder{summary: ExpandedSummary{Coverage: SceneInstanceCoverage{Unresolved: math.MaxInt64}}},
+			name:    "unsupported inherited node",
+			builder: summaryBuilder{summary: ExpandedSummary{Metrics: metrics.Values{Nodes: math.MaxInt64}}},
 			apply: func(builder *summaryBuilder) error {
-				return builder.addInherited(
-					project.ResolvedPath{},
-					InstanceMount{},
-					&inheritedSceneError{},
+				return builder.addUnsupportedInheritance(InheritedTarget{Occurrences: 1})
+			},
+		},
+		{
+			name: "resolved inherited metrics",
+			builder: summaryBuilder{
+				summary:      ExpandedSummary{Metrics: metrics.Values{Nodes: math.MaxInt64}},
+				resources:    map[ResourceIdentity]struct{}{},
+				dependencies: map[string]struct{}{},
+			},
+			apply: func(builder *summaryBuilder) error {
+				return builder.applyInheritedBase(
+					project.ResolvedPath{Canonical: filepath.Join(t.TempDir(), "base.tscn")},
+					ExpandedSummary{Metrics: metrics.Values{Nodes: 1}},
+					InheritedTarget{Occurrences: 1},
+				)
+			},
+		},
+		{
+			name: "resolved inherited coverage",
+			builder: summaryBuilder{
+				summary:      ExpandedSummary{Coverage: SceneInstanceCoverage{Resolved: math.MaxInt64}},
+				resources:    map[ResourceIdentity]struct{}{},
+				dependencies: map[string]struct{}{},
+			},
+			apply: func(builder *summaryBuilder) error {
+				return builder.applyInheritedBase(
+					project.ResolvedPath{Canonical: filepath.Join(t.TempDir(), "base.tscn")},
+					ExpandedSummary{Coverage: SceneInstanceCoverage{Resolved: 1}},
+					InheritedTarget{Occurrences: 1},
 				)
 			},
 		},
@@ -780,8 +1191,8 @@ func TestEvidenceOverflowDoesNotMutateSummaryBuilder(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			before := cloneExpandedSummary(test.builder.summary)
 			assertOverflow(t, test.apply(&test.builder))
-			if !reflect.DeepEqual(test.builder.summary, before) {
-				t.Fatalf("overflow mutated builder: %#v", test.builder.summary)
+			if !reflect.DeepEqual(test.builder.summary, before) || len(test.builder.resources) != 0 || len(test.builder.dependencies) != 0 {
+				t.Fatalf("overflow mutated builder: %#v", test.builder)
 			}
 		})
 	}

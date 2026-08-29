@@ -46,12 +46,14 @@ func TestAnalysisStatusReliabilityAndCoverageValidation(t *testing.T) {
 		{UnresolvedSceneInstances: -1},
 		{ParsedSceneFiles: -1},
 		{InheritedScenes: -1},
-		{UnresolvedSceneInstances: 1, InheritedScenes: 2},
 	}
 	for _, coverage := range tests {
 		if err := coverage.Validate(); err == nil {
 			t.Errorf("Coverage(%#v).Validate() error = nil", coverage)
 		}
+	}
+	if err := (Coverage{UnresolvedSceneInstances: 1, InheritedScenes: 2}).Validate(); err != nil {
+		t.Fatalf("independent inherited coverage error = %v", err)
 	}
 
 	validPairs := []completionResult{
@@ -208,8 +210,6 @@ func TestFinalizeCompletenessGroupsRepeatedEvidenceAndOwnsResults(t *testing.T) 
 
 func TestFinalizeCompletenessCountsRepeatedInheritance(t *testing.T) {
 	summary := ExpandedSummary{
-		Metrics:  metrics.Values{SceneInstances: 100},
-		Coverage: SceneInstanceCoverage{Unresolved: 100},
 		InheritedTargets: []InheritedTarget{{
 			Classification:  TargetInheritedScene,
 			DeclaringScene:  "/project/root.tscn",
@@ -223,9 +223,8 @@ func TestFinalizeCompletenessCountsRepeatedInheritance(t *testing.T) {
 	}
 	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
 		result.Coverage != (Coverage{
-			UnresolvedSceneInstances: 100,
-			ParsedSceneFiles:         3,
-			InheritedScenes:          100,
+			ParsedSceneFiles: 3,
+			InheritedScenes:  100,
 		}) || len(result.Diagnostics) != 1 || result.Diagnostics[0].Occurrences != 100 {
 		t.Fatalf("result = %#v", result)
 	}
