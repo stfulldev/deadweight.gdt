@@ -402,7 +402,18 @@ func inspectResult(nodes int64) application.InspectResult {
 		ConfigSource:  config.Source{Path: "/game/policy.json", Explicit: true},
 		ConfigPresent: true,
 		Analysis: analysis.RecursiveResult{
-			Summary:     analysis.ExpandedSummary{Metrics: metrics.Values{Nodes: nodes}},
+			Summary: analysis.ExpandedSummary{
+				Metrics:      metrics.Values{Nodes: nodes},
+				DepthPartial: true,
+				Contributions: []analysis.SceneContribution{{
+					Kind:           analysis.ContributionRoot,
+					SceneCanonical: "/game/root.tscn",
+					SceneDisplay:   "res://root.tscn",
+					Occurrences:    1,
+					Values:         analysis.ContributionValues{Nodes: nodes},
+					Reliability:    analysis.ReliabilityExact,
+				}},
+			},
 			Status:      analysis.AnalysisComplete,
 			Reliability: analysis.ReliabilityExact,
 		},

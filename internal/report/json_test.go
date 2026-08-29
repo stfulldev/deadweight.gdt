@@ -37,6 +37,15 @@ func TestJSONReportGoldensValidateAgainstCommittedSchema(t *testing.T) {
 		{name: "inspect_approximate", render: func() (string, error) {
 			return InspectJSON(approximateInspect(), Options{Version: "0.2.0-test"})
 		}},
+		{name: "inspect_top_nodes", render: func() (string, error) {
+			return InspectJSON(lowerBoundInspect(), Options{
+				Version:       "0.2.0-test",
+				Contributions: ContributionSelection{Metric: metrics.Nodes, Limit: 2},
+			})
+		}},
+		{name: "inspect_shared_resources", render: func() (string, error) {
+			return InspectJSON(sharedEvidenceInspect(), Options{Version: "0.2.0-test"})
+		}},
 		{name: "check_passed", render: func() (string, error) {
 			return CheckJSON(presetCheck(budget.StatusPassed, false), Options{Version: "0.2.0-test"})
 		}},
@@ -165,16 +174,22 @@ func TestJSONCheckCanonicalizesComparisonsAndChecksIntegerInvariants(t *testing.
 	if after := snapshotJSON(t, result); !bytes.Equal(after, before) {
 		t.Fatal("CheckJSON mutated caller-owned comparison order")
 	}
-	last := -1
-	for _, name := range metrics.OrderedNames() {
-		position := strings.Index(rendered, `"metric": "`+string(name)+`"`)
-		if position < 0 {
-			t.Fatalf("missing comparison %q: %s", name, rendered)
-		}
-		if position <= last {
-			t.Fatalf("comparison %q is outside canonical order: %s", name, rendered)
-		}
-		last = position
+	var checkDocument struct {
+		Evaluation struct {
+			Comparisons []struct {
+				Metric metrics.Name `json:"metric"`
+			} `json:"comparisons"`
+		} `json:"evaluation"`
+	}
+	if err := json.Unmarshal([]byte(rendered), &checkDocument); err != nil {
+		t.Fatalf("decode check document: %v", err)
+	}
+	gotOrder := make([]metrics.Name, 0, len(checkDocument.Evaluation.Comparisons))
+	for _, comparison := range checkDocument.Evaluation.Comparisons {
+		gotOrder = append(gotOrder, comparison.Metric)
+	}
+	if want := metrics.OrderedNames(); !reflect.DeepEqual(gotOrder, want) {
+		t.Fatalf("comparison order = %v, want %v", gotOrder, want)
 	}
 
 	invalidDelta := result
@@ -235,6 +250,15 @@ func TestJSONSchemaRejectsInvalidKindsEnumsAndVersions(t *testing.T) {
 		{name: "invalid enum", mutate: func(document map[string]any) {
 			document["analysis"].(map[string]any)["status"] = "future"
 		}},
+		{name: "invalid contribution kind", mutate: func(document map[string]any) {
+			rows := document["analysis"].(map[string]any)["contributions"].([]any)
+			rows[0].(map[string]any)["kind"] = "future"
+		}},
+		{name: "invalid contribution aggregation", mutate: func(document map[string]any) {
+			rows := document["analysis"].(map[string]any)["contributions"].([]any)
+			metrics := rows[0].(map[string]any)["metrics"].([]any)
+			metrics[0].(map[string]any)["aggregation"] = "unique_union"
+		}},
 		{name: "unsupported schema", mutate: func(document map[string]any) { document["schema_version"] = 2 }},
 		{name: "unknown kind", mutate: func(document map[string]any) { document["kind"] = "future" }},
 	}
@@ -293,6 +317,25 @@ func portableInspectFixture(root, scene, configPath, diagnosticPath string) appl
 		Code: diagnostic.CodeImportedScene, Severity: diagnostic.SeverityWarning,
 		Message: "imported PackedScene cannot be expanded statically",
 		File:    diagnosticPath, Line: 4, Column: 2, Occurrences: 2,
+	}}
+	result.Analysis.Summary.Contributions[0].SceneCanonical = scene
+	result.Analysis.Summary.Contributions[0].SceneDisplay = ""
+	mountPath := "Branch/Child"
+	assetPath := root + "/assets/shared.res"
+	if strings.Contains(root, `\`) {
+		mountPath = `Branch\Child`
+		assetPath = root + `\assets\shared.res`
+	}
+	childContribution := contributionFixture(diagnosticPath, "", 2, analysis.ReliabilityLowerBound)
+	childContribution.DeclaringScene = scene
+	childContribution.DeclaringDisplay = ""
+	childContribution.MountPath = mountPath
+	result.Analysis.Summary.Contributions = append(result.Analysis.Summary.Contributions, childContribution)
+	result.Analysis.UniqueEvidence = []analysis.UniqueEvidence{{
+		Metric: metrics.ExternalResources, Canonical: assetPath,
+		Referrers: []analysis.UniqueReferrer{{
+			SceneCanonical: scene, RawTarget: assetPath, Occurrences: 1,
+		}},
 	}}
 	return result
 }

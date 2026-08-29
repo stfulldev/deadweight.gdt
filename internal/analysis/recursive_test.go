@@ -168,6 +168,18 @@ shadow_enabled = true
 	if summary.Metrics != wantMetrics {
 		t.Fatalf("Metrics = %#v, want %#v", summary.Metrics, wantMetrics)
 	}
+	if err := ValidateContributionEvidence(result); err != nil {
+		t.Fatalf("contribution evidence = %v", err)
+	}
+	rootContribution := requireContribution(t, summary.Contributions, ContributionRoot, root.Canonical, "")
+	childContribution := requireContribution(t, summary.Contributions, ContributionScene, child.Canonical, root.Canonical)
+	leafContribution := requireContribution(t, summary.Contributions, ContributionScene, leaf.Canonical, child.Canonical)
+	if rootContribution.Values != (ContributionValues{Nodes: 2}) ||
+		childContribution.Values != (ContributionValues{Nodes: 2, SceneInstances: 1, MeshInstances: 1}) ||
+		leafContribution.Values != (ContributionValues{Nodes: 2, SceneInstances: 1, Lights: 1, ShadowLights: 1}) ||
+		leafContribution.DepthCandidate != (OptionalDepth{Value: 6, Known: true}) {
+		t.Fatalf("chain contributions = %#v", summary.Contributions)
+	}
 	if summary.Coverage != (SceneInstanceCoverage{Resolved: 2}) {
 		t.Fatalf("Coverage = %#v", summary.Coverage)
 	}
@@ -256,6 +268,13 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 	if first.Metrics != wantMetrics || first.Coverage != (SceneInstanceCoverage{Resolved: 200}) {
 		t.Fatalf("first summary = %#v / %#v", first.Metrics, first.Coverage)
 	}
+	if err := validateContributions(first.Contributions, first.Metrics, first.DepthPartial); err != nil {
+		t.Fatalf("first contributions = %v", err)
+	}
+	leafContribution := requireContribution(t, first.Contributions, ContributionScene, leaf.Canonical, child.Canonical)
+	if leafContribution.Occurrences != 100 || leafContribution.Values != (ContributionValues{Nodes: 100, SceneInstances: 100}) {
+		t.Fatalf("repeated leaf contribution = %#v", leafContribution)
+	}
 	wantDependencies := []string{child.Canonical, leaf.Canonical}
 	sort.Strings(wantDependencies)
 	if !reflect.DeepEqual(first.Dependencies, wantDependencies) {
@@ -275,9 +294,13 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 
 	first.Dependencies[0] = "mutated"
 	first.ExternalResources[0].Canonical = "mutated"
+	first.Contributions[0].Values.Nodes = -1
 	second, err := analyzer.Expand(root)
 	if err != nil {
 		t.Fatalf("second Expand() error = %v", err)
+	}
+	if secondContribution := requireContribution(t, second.Contributions, ContributionScene, leaf.Canonical, child.Canonical); secondContribution.Values.Nodes < 0 {
+		t.Fatalf("second contribution aliases first result: %#v", secondContribution)
 	}
 	if second.Metrics != wantMetrics || !reflect.DeepEqual(second.Dependencies, wantDependencies) {
 		t.Fatalf("second summary changed after caller mutation: %#v", second)
@@ -322,10 +345,11 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 		return BuildLocalSummary(document)
 	}
 
-	summary, err := analyzer.Expand(root)
+	result, err := analyzer.Analyze(root)
 	if err != nil {
-		t.Fatalf("Expand() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
+	summary := result.Summary
 	if summary.Metrics.Nodes != 5 || summary.Metrics.SceneInstances != 4 || summary.Coverage.Resolved != 4 {
 		t.Fatalf("summary metrics/coverage = %#v/%#v", summary.Metrics, summary.Coverage)
 	}
@@ -339,6 +363,17 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 	}
 	if summary.Metrics.ExternalResources != 4 || summary.Metrics.SceneDependencies != 3 {
 		t.Fatalf("unique metrics = %#v", summary.Metrics)
+	}
+	if err := ValidateContributionEvidence(result); err != nil {
+		t.Fatalf("contribution evidence = %v", err)
+	}
+	sharedDependency := requireUniqueEvidence(t, result.UniqueEvidence, metrics.SceneDependencies, shared.Canonical)
+	if len(sharedDependency.Referrers) != 2 || sharedDependency.Referrers[0].SceneCanonical != left.Canonical || sharedDependency.Referrers[1].SceneCanonical != right.Canonical {
+		t.Fatalf("shared dependency referrers = %#v", sharedDependency.Referrers)
+	}
+	sharedResource := requireUniqueEvidence(t, result.UniqueEvidence, metrics.ExternalResources, asset.Canonical)
+	if len(sharedResource.Referrers) != 1 || sharedResource.Referrers[0].SceneCanonical != shared.Canonical {
+		t.Fatalf("shared resource referrers = %#v", sharedResource.Referrers)
 	}
 	for _, path := range []project.ResolvedPath{root, left, right, shared} {
 		requireMemorySceneEffects(t, loader, path, 1)
@@ -481,6 +516,18 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 		}) || len(result.Diagnostics) != 11 {
 		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
 	}
+	unresolvedContributions := 0
+	for _, contribution := range summary.Contributions {
+		if contribution.Kind == ContributionUnresolved {
+			unresolvedContributions++
+			if contribution.Reliability != ReliabilityLowerBound {
+				t.Errorf("unresolved contribution reliability = %q", contribution.Reliability)
+			}
+		}
+	}
+	if unresolvedContributions != 10 {
+		t.Fatalf("unresolved contributions = %d, want 10", unresolvedContributions)
+	}
 }
 
 func TestRecursiveAnalyzerAppliesResolvedInheritedBaseWithLocalAdditions(t *testing.T) {
@@ -534,6 +581,10 @@ shadow_enabled = true
 	}
 	if len(result.Summary.InheritedTargets) != 1 {
 		t.Fatalf("InheritedTargets = %#v", result.Summary.InheritedTargets)
+	}
+	baseContribution := requireContribution(t, result.Summary.Contributions, ContributionInherited, base.Canonical, derived.Canonical)
+	if baseContribution.Reliability != ReliabilityApproximate || baseContribution.Values.SceneInstances != 0 {
+		t.Fatalf("inherited base contribution = %#v", baseContribution)
 	}
 	evidence := result.Summary.InheritedTargets[0]
 	if evidence.DeclaringScene != derived.Canonical || evidence.BaseResourceID != "1_base" ||

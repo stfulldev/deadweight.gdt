@@ -48,11 +48,14 @@ type configurationV1 struct {
 }
 
 type analysisV1 struct {
-	Status      analysis.AnalysisStatus `json:"status"`
-	Reliability analysis.Reliability    `json:"reliability"`
-	Metrics     []metricV1              `json:"metrics"`
-	Coverage    coverageV1              `json:"coverage"`
-	Diagnostics []diagnosticV1          `json:"diagnostics"`
+	Status          analysis.AnalysisStatus `json:"status"`
+	Reliability     analysis.Reliability    `json:"reliability"`
+	Metrics         []metricV1              `json:"metrics"`
+	Coverage        coverageV1              `json:"coverage"`
+	Diagnostics     []diagnosticV1          `json:"diagnostics"`
+	Contributions   []contributionV1        `json:"contributions"`
+	UniqueEvidence  []uniqueEvidenceV1      `json:"unique_evidence"`
+	TopContributors *topContributorsV1      `json:"top_contributors,omitempty"`
 }
 
 type metricV1 struct {
@@ -239,6 +242,18 @@ func inspectDocumentV1(result application.InspectResult, options Options) (docum
 		diagnosticDocuments = append(diagnosticDocuments, diagnosticDocumentV1(result.Project.Directory, item))
 	}
 	coverage := result.Analysis.Coverage
+	contributions, err := contributionDocumentsV1(result)
+	if err != nil {
+		return documentV1{}, err
+	}
+	uniqueEvidence, err := uniqueEvidenceDocumentsV1(result)
+	if err != nil {
+		return documentV1{}, err
+	}
+	top, err := topContributorsDocumentV1(result, options.Contributions)
+	if err != nil {
+		return documentV1{}, err
+	}
 	options = normalizedOptions(options)
 
 	return documentV1{
@@ -257,7 +272,10 @@ func inspectDocumentV1(result application.InspectResult, options Options) (docum
 				UnresolvedSceneInstances: coverage.UnresolvedSceneInstances,
 				InheritedScenes:          coverage.InheritedScenes,
 			},
-			Diagnostics: diagnosticDocuments,
+			Diagnostics:     diagnosticDocuments,
+			Contributions:   contributions,
+			UniqueEvidence:  uniqueEvidence,
+			TopContributors: top,
 		},
 	}, nil
 }

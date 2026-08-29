@@ -88,6 +88,16 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	if err != nil {
 		return RecursiveResult{}, err
 	}
+	if err := validateContributions(summary.Contributions, summary.Metrics, summary.DepthPartial); err != nil {
+		return RecursiveResult{}, err
+	}
+	uniqueEvidence, err := buildUniqueEvidence(graph, state.cache)
+	if err != nil {
+		return RecursiveResult{}, err
+	}
+	if err := validateUniqueEvidence(uniqueEvidence, summary.Metrics); err != nil {
+		return RecursiveResult{}, err
+	}
 	parsedSceneFiles, err := state.cache.parsedSceneFiles()
 	if err != nil {
 		return RecursiveResult{}, err
@@ -99,6 +109,7 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	result := RecursiveResult{
 		Summary:          summary,
 		Graph:            graph,
+		UniqueEvidence:   uniqueEvidence,
 		ParsedSceneFiles: parsedSceneFiles,
 		Status:           completion.Status,
 		Reliability:      completion.Reliability,
@@ -186,6 +197,7 @@ type resolvedApplication struct {
 
 type summaryBuilder struct {
 	summary      ExpandedSummary
+	path         project.ResolvedPath
 	resources    map[ResourceIdentity]struct{}
 	dependencies map[string]struct{}
 }
@@ -268,12 +280,15 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 			}
 		}
 
-		if err := builder.applyResolved(application.path, key, application.count, child); err != nil {
+		if err := builder.applyResolvedWithMounts(application.path, key, application.count, application.mounts, child); err != nil {
 			return ExpandedSummary{}, err
 		}
 	}
 
-	result := builder.finish()
+	result, err := builder.finish()
+	if err != nil {
+		return ExpandedSummary{}, err
+	}
 	state.cache.storeExpandedSummary(path.Canonical, result)
 
 	return cloneExpandedSummary(result), nil
@@ -376,6 +391,28 @@ func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBu
 	}
 	summary.Metrics.ExternalResources = 0
 	summary.Metrics.SceneDependencies = 0
+	reliability := ReliabilityExact
+	if local.DepthPartial {
+		reliability = ReliabilityLowerBound
+	}
+	if local.InheritedRoot != nil {
+		reliability = ReliabilityApproximate
+	}
+	summary.Contributions = []SceneContribution{{
+		Kind:           ContributionRoot,
+		SceneCanonical: path.Canonical,
+		SceneDisplay:   path.Display,
+		SceneOriginal:  path.Original,
+		Occurrences:    1,
+		Values: ContributionValues{
+			Nodes:         local.Metrics.Nodes,
+			MeshInstances: local.Metrics.MeshInstances,
+			Lights:        local.Metrics.Lights,
+			ShadowLights:  local.Metrics.ShadowLights,
+		},
+		DepthCandidate: directLocalDepth(local.Nodes),
+		Reliability:    reliability,
+	}}
 	for _, finding := range local.Findings {
 		summary.ParentFindings = append(summary.ParentFindings, SceneParentFinding{
 			DeclaringScene:   path.Canonical,
@@ -387,9 +424,21 @@ func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBu
 
 	return &summaryBuilder{
 		summary:      summary,
+		path:         path,
 		resources:    make(map[ResourceIdentity]struct{}),
 		dependencies: make(map[string]struct{}),
 	}
+}
+
+func directLocalDepth(nodes []OrdinaryNode) OptionalDepth {
+	result := OptionalDepth{}
+	for _, node := range nodes {
+		if node.Depth.Known && (!result.Known || node.Depth.Value > result.Value) {
+			result = node.Depth
+		}
+	}
+
+	return result
 }
 
 func (state *invocationState) resolveSceneResources(
@@ -603,6 +652,27 @@ func (builder *summaryBuilder) addUnresolved(evidence UnresolvedInstance) error 
 		next.DepthPartial = true
 	}
 	next.Unresolved = append(next.Unresolved, evidence)
+	next.Contributions = append(next.Contributions, SceneContribution{
+		Kind:             ContributionUnresolved,
+		SceneCanonical:   evidence.TargetCanonical,
+		SceneDisplay:     evidence.TargetDisplay,
+		SceneOriginal:    evidence.TargetOriginal,
+		DeclaringScene:   evidence.DeclaringScene,
+		DeclaringDisplay: evidence.DeclaringDisplay,
+		MountName:        evidence.MountName,
+		MountPath:        evidence.MountPath,
+		MountDepth:       evidence.MountDepth,
+		ResourceID:       evidence.ResourceID,
+		RawTarget:        evidence.RawTarget,
+		Classification:   evidence.Classification,
+		Occurrences:      evidence.Occurrences,
+		Values: ContributionValues{
+			Nodes:          evidence.Occurrences,
+			SceneInstances: evidence.Occurrences,
+		},
+		DepthCandidate: evidence.MountDepth,
+		Reliability:    ReliabilityLowerBound,
+	})
 	builder.summary = next
 
 	return nil
@@ -620,6 +690,17 @@ func (builder *summaryBuilder) addUnsupportedInheritance(evidence InheritedTarge
 		next.Metrics.TreeDepth = 1
 	}
 	next.InheritedTargets = append(next.InheritedTargets, evidence)
+	if len(next.Contributions) == 0 || next.Contributions[0].Kind != ContributionRoot {
+		return fmt.Errorf("inherited scene %q has no root contribution", builder.path.Display)
+	}
+	next.Contributions[0].Values.Nodes, err = checkedAdd(next.Contributions[0].Values.Nodes, 1)
+	if err != nil {
+		return err
+	}
+	if !next.Contributions[0].DepthCandidate.Known || next.Contributions[0].DepthCandidate.Value < 1 {
+		next.Contributions[0].DepthCandidate = OptionalDepth{Value: 1, Known: true}
+	}
+	next.Contributions[0].Reliability = ReliabilityApproximate
 	builder.summary = next
 
 	return nil
@@ -660,6 +741,22 @@ func (builder *summaryBuilder) applyInheritedBase(
 	next.InheritedTargets = append(next.InheritedTargets, base.InheritedTargets...)
 	next.InheritedTargets = append(next.InheritedTargets, evidence)
 	next.ParentFindings = append(next.ParentFindings, base.ParentFindings...)
+	for _, contribution := range base.Contributions {
+		applied := contribution
+		if applied.Kind == ContributionRoot {
+			applied.Kind = ContributionInherited
+			applied.DeclaringScene = builder.path.Canonical
+			applied.DeclaringDisplay = builder.path.Display
+			applied.MountName = evidence.MountName
+			applied.MountPath = evidence.MountPath
+			applied.MountDepth = evidence.MountDepth
+			applied.ResourceID = evidence.BaseResourceID
+			applied.RawTarget = evidence.BaseRawTarget
+			applied.Classification = TargetInheritedScene
+		}
+		applied.Reliability = ReliabilityApproximate
+		next.Contributions = append(next.Contributions, applied)
+	}
 
 	builder.summary = next
 	builder.dependencies[basePath.Canonical] = struct{}{}
@@ -675,6 +772,16 @@ func (builder *summaryBuilder) applyResolved(
 	childPath project.ResolvedPath,
 	key resolvedApplicationKey,
 	multiplicity int64,
+	child ExpandedSummary,
+) error {
+	return builder.applyResolvedWithMounts(childPath, key, multiplicity, nil, child)
+}
+
+func (builder *summaryBuilder) applyResolvedWithMounts(
+	childPath project.ResolvedPath,
+	key resolvedApplicationKey,
+	multiplicity int64,
+	mounts []InstanceMount,
 	child ExpandedSummary,
 ) error {
 	next := cloneExpandedSummary(builder.summary)
@@ -762,6 +869,43 @@ func (builder *summaryBuilder) applyResolved(
 		}
 		next.ParentFindings = append(next.ParentFindings, finding)
 	}
+	if len(child.Contributions) > 0 && int64(len(mounts)) != multiplicity {
+		return fmt.Errorf("resolved contribution multiplicity %d does not match %d mount contexts", multiplicity, len(mounts))
+	}
+	for _, mount := range mounts {
+		for _, contribution := range child.Contributions {
+			applied := contribution
+			if applied.Kind == ContributionRoot {
+				applied.Kind = ContributionScene
+				applied.DeclaringScene = builder.path.Canonical
+				applied.DeclaringDisplay = builder.path.Display
+				applied.MountName = mount.Name
+				applied.MountPath = mount.Path
+				applied.MountDepth = mount.Depth
+				applied.ResourceID = mount.Reference.ID
+				if mount.Candidate != nil {
+					applied.RawTarget = mount.Candidate.Path
+				}
+				applied.Values.SceneInstances, err = checkedAdd(applied.Values.SceneInstances, 1)
+				if err != nil {
+					return err
+				}
+				if !applied.DepthCandidate.Known || applied.DepthCandidate.Value < 1 {
+					applied.DepthCandidate = OptionalDepth{Value: 1, Known: true}
+				}
+			}
+			if mount.Depth.Known && applied.DepthCandidate.Known {
+				applied.DepthCandidate.Value, err = checkedDepth(mount.Depth.Value, applied.DepthCandidate.Value)
+				if err != nil {
+					return err
+				}
+			} else {
+				applied.DepthCandidate = OptionalDepth{}
+				applied.Reliability = conservativeReliability(applied.Reliability, ReliabilityLowerBound)
+			}
+			next.Contributions = append(next.Contributions, applied)
+		}
+	}
 
 	builder.summary = next
 	builder.dependencies[childPath.Canonical] = struct{}{}
@@ -845,7 +989,12 @@ func sameResourceIdentity(left, right ResourceIdentity) bool {
 		left.RawPath == right.RawPath
 }
 
-func (builder *summaryBuilder) finish() ExpandedSummary {
+func (builder *summaryBuilder) finish() (ExpandedSummary, error) {
+	contributions, err := compactContributions(builder.summary.Contributions)
+	if err != nil {
+		return ExpandedSummary{}, err
+	}
+	builder.summary.Contributions = contributions
 	builder.summary.ExternalResources = builder.sortedResources()
 	builder.summary.Dependencies = make([]string, 0, len(builder.dependencies))
 	for dependency := range builder.dependencies {
@@ -856,7 +1005,7 @@ func (builder *summaryBuilder) finish() ExpandedSummary {
 	sortInheritedTargets(builder.summary.InheritedTargets)
 	sortSceneParentFindings(builder.summary.ParentFindings)
 
-	return cloneExpandedSummary(builder.summary)
+	return cloneExpandedSummary(builder.summary), nil
 }
 
 func sortUnresolved(evidence []UnresolvedInstance) {
@@ -951,6 +1100,7 @@ func sortSceneParentFindings(findings []SceneParentFinding) {
 
 func cloneExpandedSummary(summary ExpandedSummary) ExpandedSummary {
 	cloned := summary
+	cloned.Contributions = cloneContributions(summary.Contributions)
 	cloned.ExternalResources = append([]ResourceIdentity(nil), summary.ExternalResources...)
 	cloned.Dependencies = append([]string(nil), summary.Dependencies...)
 	cloned.Unresolved = append([]UnresolvedInstance(nil), summary.Unresolved...)

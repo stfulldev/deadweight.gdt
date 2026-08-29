@@ -9,6 +9,8 @@ All notable changes to this project are documented here.
 - Add `--format text|json` to `inspect` and `check`, keeping text as the compatible default and preserving all existing exit-code meanings.
 - Publish deterministic, portable schema-version-one `inspect`, `check`, and fatal `error` documents with a committed Draft 2020-12 schema and schema-valid golden fixtures.
 - Retain ordered metrics, checked coverage, grouped diagnostics, effective policy metadata, comparisons, partial policy, and verdict evidence for automation without exposing canonical checkout paths.
+- Add deterministic direct per-scene contribution evidence whose additive occurrence values reconcile to root metrics while depth remains a maximum and shared resources/dependencies remain ownerless unique unions.
+- Add paired inspect-only `--metric` and `--top` selectors for an opt-in top-contributors text/JSON projection, with portable tie-breaking and explicit lower-bound or approximate row reliability.
 
 ## [0.1.1] — 2026-08-30
 

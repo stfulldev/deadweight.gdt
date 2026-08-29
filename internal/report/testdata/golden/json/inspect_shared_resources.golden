@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "kind": "check",
+  "kind": "inspect",
   "tool": {
     "name": "deadweight.gdt",
     "version": "0.2.0-test"
@@ -13,8 +13,8 @@
     "selection": "absent"
   },
   "analysis": {
-    "status": "partial",
-    "reliability": "lower_bound",
+    "status": "complete",
+    "reliability": "exact",
     "metrics": [
       {
         "id": "nodes",
@@ -51,103 +51,35 @@
     ],
     "coverage": {
       "parsed_scene_files": 13,
-      "resolved_scene_instances": 179,
-      "unresolved_scene_instances": 5,
+      "resolved_scene_instances": 184,
+      "unresolved_scene_instances": 0,
       "inherited_scenes": 0
     },
-    "diagnostics": [
-      {
-        "code": "SB1002",
-        "severity": "warning",
-        "message": "imported PackedScene cannot be expanded statically",
-        "occurrences": 3,
-        "source": {
-          "path": "res://models/car.glb"
-        }
-      },
-      {
-        "code": "SB1002",
-        "severity": "warning",
-        "message": "imported PackedScene cannot be expanded statically",
-        "occurrences": 2,
-        "source": {
-          "path": "res://models/tree.glb"
-        }
-      }
-    ],
+    "diagnostics": [],
     "contributions": [
       {
-        "kind": "root",
-        "scene": "res://levels/city.tscn",
+        "kind": "scene",
+        "scene": "res://actors/a.tscn",
+        "declaring_scene": "res://root.tscn",
+        "mount_path": "Child",
         "occurrences": 1,
         "reliability": "exact",
         "metrics": [
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 2836
+            "value": 10
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
-            "value": 17,
+            "value": 2,
             "available": true
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 179
-          },
-          {
-            "id": "mesh_instances",
-            "aggregation": "additive",
-            "value": 1024
-          },
-          {
-            "id": "lights",
-            "aggregation": "additive",
-            "value": 43
-          },
-          {
-            "id": "shadow_lights",
-            "aggregation": "additive",
-            "value": 9
-          },
-          {
-            "id": "external_resources",
-            "aggregation": "unique_union"
-          },
-          {
-            "id": "scene_dependencies",
-            "aggregation": "unique_union"
-          }
-        ]
-      },
-      {
-        "kind": "unresolved",
-        "scene": "res://models/car.glb",
-        "declaring_scene": "res://levels/city.tscn",
-        "mount_path": "Cars",
-        "raw_target": "res://models/car.glb",
-        "classification": "imported_scene",
-        "occurrences": 3,
-        "reliability": "lower_bound",
-        "metrics": [
-          {
-            "id": "nodes",
-            "aggregation": "additive",
-            "value": 3
-          },
-          {
-            "id": "tree_depth",
-            "aggregation": "maximum",
-            "value": 3,
-            "available": true
-          },
-          {
-            "id": "scene_instances",
-            "aggregation": "additive",
-            "value": 3
+            "value": 0
           },
           {
             "id": "mesh_instances",
@@ -175,30 +107,77 @@
         ]
       },
       {
-        "kind": "unresolved",
-        "scene": "res://models/tree.glb",
-        "declaring_scene": "res://levels/city.tscn",
-        "mount_path": "Trees",
-        "raw_target": "res://models/tree.glb",
-        "classification": "imported_scene",
-        "occurrences": 2,
-        "reliability": "lower_bound",
+        "kind": "scene",
+        "scene": "res://actors/b.tscn",
+        "declaring_scene": "res://root.tscn",
+        "mount_path": "Child",
+        "occurrences": 1,
+        "reliability": "exact",
         "metrics": [
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 2
+            "value": 5
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
-            "value": 4,
+            "value": 2,
             "available": true
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 2
+            "value": 0
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      },
+      {
+        "kind": "scene",
+        "scene": "res://levels/city.tscn",
+        "declaring_scene": "res://root.tscn",
+        "mount_path": "Child",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 20
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 2,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 0
           },
           {
             "id": "mesh_instances",
@@ -226,80 +205,25 @@
         ]
       }
     ],
-    "unique_evidence": []
-  },
-  "policy": {
-    "kind": "preset",
-    "id": "steam-deck",
-    "metadata": {
-      "renderer": "forward_plus",
-      "target_fps": 60,
-      "quality": "balanced",
-      "status": "heuristic",
-      "stability": "experimental"
-    },
-    "fail_on_partial": true
-  },
-  "evaluation": {
-    "comparisons": [
-      {
-        "metric": "nodes",
-        "observed": 2841,
-        "limit": 3000,
-        "delta": -159,
-        "passed": true
-      },
-      {
-        "metric": "tree_depth",
-        "observed": 17,
-        "limit": 20,
-        "delta": -3,
-        "passed": true
-      },
-      {
-        "metric": "scene_instances",
-        "observed": 184,
-        "limit": 250,
-        "delta": -66,
-        "passed": true
-      },
-      {
-        "metric": "mesh_instances",
-        "observed": 1024,
-        "limit": 1000,
-        "delta": 24,
-        "passed": false
-      },
-      {
-        "metric": "lights",
-        "observed": 43,
-        "limit": 32,
-        "delta": 11,
-        "passed": false
-      },
-      {
-        "metric": "shadow_lights",
-        "observed": 9,
-        "limit": 8,
-        "delta": 1,
-        "passed": false
-      },
+    "unique_evidence": [
       {
         "metric": "external_resources",
-        "observed": 218,
-        "limit": 300,
-        "delta": -82,
-        "passed": true
-      },
-      {
-        "metric": "scene_dependencies",
-        "observed": 12,
-        "limit": 80,
-        "delta": -68,
-        "passed": true
+        "identity": "res://assets/shared.png",
+        "referrers": [
+          {
+            "scene": "res://actors/a.tscn",
+            "resource_id": "1_texture",
+            "raw_target": "res://assets/shared.png",
+            "occurrences": 1
+          },
+          {
+            "scene": "res://actors/b.tscn",
+            "resource_id": "2_texture",
+            "raw_target": "res://assets/shared.png",
+            "occurrences": 1
+          }
+        ]
       }
-    ],
-    "exceeded": 3,
-    "verdict": "INCOMPLETE"
+    ]
   }
 }

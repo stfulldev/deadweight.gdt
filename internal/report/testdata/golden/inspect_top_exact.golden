@@ -1,0 +1,28 @@
+deadweight.gdt 0.1.0
+
+Scene:     res://levels/city.tscn
+Project:   <PROJECT>
+Analysis:  COMPLETE
+Accuracy:  exact
+
+Structure
+  Nodes                           2,841
+  Tree depth                         17
+  Scene instances                   184
+  Scene dependencies                 12
+
+Rendering
+  Mesh instances                  1,024
+  Lights                             43
+  Shadow lights                       9
+
+Resources
+  External resources                218
+
+Coverage
+  Parsed scene files                 13
+  Resolved scene instances          184
+  Unresolved scene instances          0
+
+Top contributors — nodes (limit 2)
+       2,841  ×1      exact       res://levels/city.tscn             root

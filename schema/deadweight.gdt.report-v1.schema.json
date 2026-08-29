@@ -135,6 +135,127 @@
       ],
       "items": false
     },
+    "contributionMetric": {
+      "type": "object",
+      "required": ["id", "aggregation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/metricName" },
+        "aggregation": { "enum": ["additive", "maximum", "unique_union"] },
+        "value": { "$ref": "#/$defs/nonNegativeInt64" },
+        "available": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "aggregation": { "const": "additive" } }, "required": ["aggregation"] },
+          "then": { "required": ["value"], "not": { "required": ["available"] } }
+        },
+        {
+          "if": { "properties": { "aggregation": { "const": "maximum" } }, "required": ["aggregation"] },
+          "then": {
+            "required": ["available"],
+            "allOf": [
+              {
+                "if": { "properties": { "available": { "const": true } }, "required": ["available"] },
+                "then": { "required": ["value"] },
+                "else": { "not": { "required": ["value"] } }
+              }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "aggregation": { "const": "unique_union" } }, "required": ["aggregation"] },
+          "then": { "not": { "anyOf": [{ "required": ["value"] }, { "required": ["available"] }] } }
+        }
+      ]
+    },
+    "contributionMetrics": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "nodes" }, "aggregation": { "const": "additive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "tree_depth" }, "aggregation": { "const": "maximum" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "scene_instances" }, "aggregation": { "const": "additive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "mesh_instances" }, "aggregation": { "const": "additive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "lights" }, "aggregation": { "const": "additive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "shadow_lights" }, "aggregation": { "const": "additive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "external_resources" }, "aggregation": { "const": "unique_union" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/contributionMetric" }, { "properties": { "id": { "const": "scene_dependencies" }, "aggregation": { "const": "unique_union" } } }] }
+      ],
+      "items": false
+    },
+    "contribution": {
+      "type": "object",
+      "required": ["kind", "scene", "occurrences", "reliability", "metrics"],
+      "properties": {
+        "kind": { "enum": ["root", "scene", "inherited", "unresolved"] },
+        "scene": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "declaring_scene": { "$ref": "#/$defs/portablePath" },
+        "mount_path": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "mount_depth": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "resource_id": { "type": "string", "minLength": 1 },
+        "raw_target": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "classification": {
+          "enum": [
+            "missing_external_resource", "unresolved_path", "imported_scene",
+            "unsupported_scene", "sub_resource", "placeholder", "unavailable_scene",
+            "inherited_scene"
+          ]
+        },
+        "occurrences": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "metrics": { "$ref": "#/$defs/contributionMetrics" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "root" } }, "required": ["kind"] },
+          "then": { "not": { "required": ["declaring_scene"] } }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["scene", "inherited", "unresolved"] } }, "required": ["kind"] },
+          "then": { "required": ["declaring_scene"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "unresolved" } }, "required": ["kind"] },
+          "then": { "required": ["classification"] }
+        }
+      ]
+    },
+    "uniqueReferrer": {
+      "type": "object",
+      "required": ["scene", "occurrences"],
+      "properties": {
+        "scene": { "$ref": "#/$defs/portablePath" },
+        "resource_id": { "type": "string", "minLength": 1 },
+        "raw_target": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "edge_kind": { "enum": ["instance", "inheritance"] },
+        "occurrences": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 }
+      }
+    },
+    "uniqueEvidence": {
+      "type": "object",
+      "required": ["metric", "identity", "referrers"],
+      "properties": {
+        "metric": { "enum": ["external_resources", "scene_dependencies"] },
+        "identity": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "referrers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/uniqueReferrer" }
+        }
+      }
+    },
+    "topContributors": {
+      "type": "object",
+      "required": ["metric", "limit", "rows"],
+      "properties": {
+        "metric": {
+          "enum": ["nodes", "tree_depth", "scene_instances", "mesh_instances", "lights", "shadow_lights"]
+        },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/contribution" } }
+      }
+    },
     "coverage": {
       "type": "object",
       "required": [
@@ -179,13 +300,19 @@
     },
     "analysis": {
       "type": "object",
-      "required": ["status", "reliability", "metrics", "coverage", "diagnostics"],
+      "required": [
+        "status", "reliability", "metrics", "coverage", "diagnostics",
+        "contributions", "unique_evidence"
+      ],
       "properties": {
         "status": { "enum": ["complete", "partial"] },
         "reliability": { "enum": ["exact", "lower_bound", "approximate"] },
         "metrics": { "$ref": "#/$defs/metrics" },
         "coverage": { "$ref": "#/$defs/coverage" },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+        "contributions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/contribution" } },
+        "unique_evidence": { "type": "array", "items": { "$ref": "#/$defs/uniqueEvidence" } },
+        "top_contributors": { "$ref": "#/$defs/topContributors" }
       }
     },
     "policyMetadata": {

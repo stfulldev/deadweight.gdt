@@ -52,6 +52,33 @@ func TestReportGoldens(t *testing.T) {
 			},
 		},
 		{
+			name: "inspect_top_exact",
+			render: func() (string, error) {
+				return Inspect(completeInspect(), Options{
+					Version:       "0.1.0",
+					Contributions: ContributionSelection{Metric: metrics.Nodes, Limit: 2},
+				})
+			},
+		},
+		{
+			name: "inspect_top_lower_bound",
+			render: func() (string, error) {
+				return Inspect(lowerBoundInspect(), Options{
+					Version:       "0.1.0",
+					Contributions: ContributionSelection{Metric: metrics.Nodes, Limit: 2},
+				})
+			},
+		},
+		{
+			name: "inspect_top_approximate",
+			render: func() (string, error) {
+				return Inspect(approximateInspect(), Options{
+					Version:       "0.1.0",
+					Contributions: ContributionSelection{Metric: metrics.Nodes, Limit: 2},
+				})
+			},
+		},
+		{
 			name: "check_passed",
 			render: func() (string, error) {
 				return Check(presetCheck(budget.StatusPassed, false), Options{Version: "0.1.0"})
@@ -91,7 +118,13 @@ func TestReportGoldens(t *testing.T) {
 			if renderErr != nil {
 				t.Fatalf("render error = %v", renderErr)
 			}
-			want, readErr := os.ReadFile(filepath.Join("testdata", "golden", test.name+".golden"))
+			goldenPath := filepath.Join("testdata", "golden", test.name+".golden")
+			if os.Getenv("UPDATE_GOLDEN") == "1" {
+				if writeErr := os.WriteFile(goldenPath, []byte(got), 0o600); writeErr != nil {
+					t.Fatalf("update golden: %v", writeErr)
+				}
+			}
+			want, readErr := os.ReadFile(goldenPath)
 			if readErr != nil {
 				t.Fatalf("read golden: %v", readErr)
 			}
@@ -324,7 +357,7 @@ func TestFallbackPresentationValues(t *testing.T) {
 }
 
 func completeInspect() application.InspectResult {
-	return application.InspectResult{
+	result := application.InspectResult{
 		Project: project.Root{Directory: "<PROJECT>", ProjectFile: "<PROJECT>/project.godot"},
 		Scene: project.ResolvedPath{
 			Canonical: "<PROJECT>/levels/city.tscn",
@@ -332,7 +365,18 @@ func completeInspect() application.InspectResult {
 			Original:  "res://levels/city.tscn",
 		},
 		Analysis: analysis.RecursiveResult{
-			Summary:     analysis.ExpandedSummary{Metrics: cityMetrics()},
+			Summary: analysis.ExpandedSummary{
+				Metrics: cityMetrics(),
+				Contributions: []analysis.SceneContribution{{
+					Kind:           analysis.ContributionRoot,
+					SceneCanonical: "<PROJECT>/levels/city.tscn",
+					SceneDisplay:   "res://levels/city.tscn",
+					Occurrences:    1,
+					Values:         fixtureContributionValues(cityMetrics()),
+					DepthCandidate: analysis.OptionalDepth{Value: cityMetrics().TreeDepth, Known: true},
+					Reliability:    analysis.ReliabilityExact,
+				}},
+			},
 			Status:      analysis.AnalysisComplete,
 			Reliability: analysis.ReliabilityExact,
 			Coverage: analysis.Coverage{
@@ -341,6 +385,18 @@ func completeInspect() application.InspectResult {
 				UnresolvedSceneInstances: 0,
 			},
 		},
+	}
+
+	return result
+}
+
+func fixtureContributionValues(values metrics.Values) analysis.ContributionValues {
+	return analysis.ContributionValues{
+		Nodes:          values.Nodes,
+		SceneInstances: values.SceneInstances,
+		MeshInstances:  values.MeshInstances,
+		Lights:         values.Lights,
+		ShadowLights:   values.ShadowLights,
 	}
 }
 
@@ -386,6 +442,37 @@ func lowerBoundInspect() application.InspectResult {
 			Occurrences: 3,
 		},
 	}
+	root := &result.Analysis.Summary.Contributions[0]
+	root.Values.Nodes -= 5
+	root.Values.SceneInstances -= 5
+	result.Analysis.Summary.Contributions = append(result.Analysis.Summary.Contributions,
+		analysis.SceneContribution{
+			Kind:             analysis.ContributionUnresolved,
+			SceneDisplay:     "res://models/tree.glb",
+			DeclaringScene:   "<PROJECT>/levels/city.tscn",
+			DeclaringDisplay: "res://levels/city.tscn",
+			MountPath:        "Trees",
+			RawTarget:        "res://models/tree.glb",
+			Classification:   analysis.TargetImportedScene,
+			Occurrences:      2,
+			Values:           analysis.ContributionValues{Nodes: 2, SceneInstances: 2},
+			DepthCandidate:   analysis.OptionalDepth{Value: 4, Known: true},
+			Reliability:      analysis.ReliabilityLowerBound,
+		},
+		analysis.SceneContribution{
+			Kind:             analysis.ContributionUnresolved,
+			SceneDisplay:     "res://models/car.glb",
+			DeclaringScene:   "<PROJECT>/levels/city.tscn",
+			DeclaringDisplay: "res://levels/city.tscn",
+			MountPath:        "Cars",
+			RawTarget:        "res://models/car.glb",
+			Classification:   analysis.TargetImportedScene,
+			Occurrences:      3,
+			Values:           analysis.ContributionValues{Nodes: 3, SceneInstances: 3},
+			DepthCandidate:   analysis.OptionalDepth{Value: 3, Known: true},
+			Reliability:      analysis.ReliabilityLowerBound,
+		},
+	)
 
 	return result
 }
@@ -407,6 +494,7 @@ func approximateInspect() application.InspectResult {
 		File:        "res://actors/zombie.tscn",
 		Occurrences: 1,
 	}}
+	result.Analysis.Summary.Contributions[0].Reliability = analysis.ReliabilityApproximate
 
 	return result
 }

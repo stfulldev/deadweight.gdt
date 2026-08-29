@@ -114,6 +114,7 @@ type SceneParentFinding struct {
 // zero; the public root result finalizes them from the retained sets and graph.
 type ExpandedSummary struct {
 	Metrics           metrics.Values
+	Contributions     []SceneContribution
 	ExternalResources []ResourceIdentity
 	Dependencies      []string
 	Coverage          SceneInstanceCoverage

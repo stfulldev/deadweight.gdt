@@ -12,13 +12,16 @@ import (
 
 func newInspectCommand(service Application, global *globalOptions) *cobra.Command {
 	formatValue := string(presentationText)
+	metricValue := ""
+	var topLimit int64
 	command := &cobra.Command{
 		Use:   "inspect <scene>",
 		Short: "Inspect effective scene metrics",
-		Args:  sceneArguments(&formatValue),
+		Args:  inspectArguments(&formatValue, &metricValue, &topLimit),
 		RunE: func(command *cobra.Command, args []string) error {
 			format, _ := parsePresentationFormat(formatValue)
 			options := global.reportOptions(command.OutOrStdout())
+			options.Contributions, _ = parseContributionSelection(command, metricValue, topLimit)
 			result, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
 				Scene:   args[0],
 				Project: global.project,
@@ -43,6 +46,8 @@ func newInspectCommand(service Application, global *globalOptions) *cobra.Comman
 		},
 	}
 	command.Flags().StringVar(&formatValue, "format", string(presentationText), "output format: text or json")
+	command.Flags().StringVar(&metricValue, "metric", "", "metric for the top-contributors view")
+	command.Flags().Int64Var(&topLimit, "top", 0, "positive number of contributor rows to show")
 
 	return command
 }

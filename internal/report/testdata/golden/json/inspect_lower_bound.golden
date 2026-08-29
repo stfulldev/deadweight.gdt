@@ -74,6 +74,158 @@
           "path": "res://models/tree.glb"
         }
       }
-    ]
+    ],
+    "contributions": [
+      {
+        "kind": "root",
+        "scene": "res://levels/city.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2836
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 17,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 179
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 1024
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 43
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 9
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      },
+      {
+        "kind": "unresolved",
+        "scene": "res://models/car.glb",
+        "declaring_scene": "res://levels/city.tscn",
+        "mount_path": "Cars",
+        "raw_target": "res://models/car.glb",
+        "classification": "imported_scene",
+        "occurrences": 3,
+        "reliability": "lower_bound",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 3
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 3,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 3
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      },
+      {
+        "kind": "unresolved",
+        "scene": "res://models/tree.glb",
+        "declaring_scene": "res://levels/city.tscn",
+        "mount_path": "Trees",
+        "raw_target": "res://models/tree.glb",
+        "classification": "imported_scene",
+        "occurrences": 2,
+        "reliability": "lower_bound",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 4,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 2
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 0
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      }
+    ],
+    "unique_evidence": []
   }
 }

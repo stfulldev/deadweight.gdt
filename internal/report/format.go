@@ -37,8 +37,20 @@ var (
 
 // Options controls presentation without changing report meaning.
 type Options struct {
-	Version string
-	Color   bool
+	Version       string
+	Color         bool
+	Contributions ContributionSelection
+}
+
+// ContributionSelection requests an opt-in inspect top-contributors projection.
+type ContributionSelection struct {
+	Metric metrics.Name
+	Limit  int64
+}
+
+// Present reports whether a contribution projection was requested.
+func (selection ContributionSelection) Present() bool {
+	return selection.Metric != "" || selection.Limit != 0
 }
 
 type styler struct {
