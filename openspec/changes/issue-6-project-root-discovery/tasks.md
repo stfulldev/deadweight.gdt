@@ -23,4 +23,4 @@
 
 - [x] 5.1 Run `gofmt` and verify `go build ./...`, targeted project/CLI tests, `go test ./...`, `go test -race ./...`, and `go vet ./...` all pass.
 - [x] 5.2 Run `golangci-lint` at the CI-pinned version and `openspec validate issue-6-project-root-discovery --strict`; verify zero lint issues and accurate task completion.
-- [ ] 5.3 Keep production code and tests in separate focused commits, push them plus OpenSpec progress to Draft PR #31, and verify the PR diff remains limited to issue #6 and its planning artifacts.
+- [x] 5.3 Keep production code and tests in separate focused commits, push them plus OpenSpec progress to Draft PR #31, and verify the PR diff remains limited to issue #6 and its planning artifacts.
