@@ -10,18 +10,18 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/preset"
 )
 
-func newPresetsCommand() *cobra.Command {
+func newPresetsCommand(service Application) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "presets",
 		Short: "List built-in heuristic budget presets",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			catalog, err := preset.Builtins()
+			result, err := service.ListPresets()
 			if err != nil {
 				return err
 			}
 
-			_, err = fmt.Fprint(cmd.OutOrStdout(), renderPresetList(catalog))
+			_, err = fmt.Fprint(cmd.OutOrStdout(), renderPresetList(result.Catalog))
 			return err
 		},
 	}
@@ -31,24 +31,18 @@ func newPresetsCommand() *cobra.Command {
 		Short: "Show one built-in preset",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			catalog, err := preset.Builtins()
+			result, err := service.ShowPreset(args[0])
 			if err != nil {
 				return err
 			}
 
-			item, err := catalog.Find(args[0])
-			if err != nil {
-				return err
-			}
-
-			_, err = fmt.Fprint(cmd.OutOrStdout(), renderPreset(item))
+			_, err = fmt.Fprint(cmd.OutOrStdout(), renderPreset(result.Preset))
 			return err
 		},
 	})
 
 	return command
 }
-
 func renderPresetList(catalog preset.Catalog) string {
 	var output strings.Builder
 	output.WriteString("Built-in presets (heuristic, experimental)\n\n")
