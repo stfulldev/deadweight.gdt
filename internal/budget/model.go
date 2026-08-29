@@ -1,6 +1,10 @@
 package budget
 
-import "github.com/stfulldev/deadweight.gdt/internal/metrics"
+import (
+	"fmt"
+
+	"github.com/stfulldev/deadweight.gdt/internal/metrics"
+)
 
 // Limits contains optional inclusive upper bounds for every MVP metric.
 // A nil field means that the corresponding metric is displayed but not checked.
@@ -13,6 +17,16 @@ type Limits struct {
 	ShadowLights      *int64 `json:"shadow_lights,omitempty"`
 	ExternalResources *int64 `json:"external_resources,omitempty"`
 	SceneDependencies *int64 `json:"scene_dependencies,omitempty"`
+}
+
+// LimitError reports a configured limit outside the non-negative domain.
+type LimitError struct {
+	Metric metrics.Name
+	Limit  int64
+}
+
+func (err *LimitError) Error() string {
+	return fmt.Sprintf("budget %q must be non-negative, got %d", err.Metric, err.Limit)
 }
 
 // Get returns a configured limit by its stable metric identifier.
@@ -57,6 +71,18 @@ func (limits Limits) Count() int {
 	}
 
 	return count
+}
+
+// Validate checks configured limits in canonical metric order.
+func (limits Limits) Validate() error {
+	for _, name := range metrics.OrderedNames() {
+		limit, configured := limits.Get(name)
+		if configured && limit < 0 {
+			return &LimitError{Metric: name, Limit: limit}
+		}
+	}
+
+	return nil
 }
 
 // Clone returns a deep copy whose optional values do not alias the source.
