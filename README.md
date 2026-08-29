@@ -13,14 +13,14 @@ It does not require Godot to be installed. The tool is intended for fast local f
 
 `deadweight.gdt` is not an FPS predictor, compatibility test, certification tool, or performance profiler. Presets are experimental starting points that should be calibrated against measurements from your own project and target hardware.
 
-The current release is `v0.1.0`. The complete implementation contract is in [the MVP specification](docs/MVP_0.1_SPEC.md), and its evidence is mapped in [the acceptance matrix](docs/MVP_0.1_ACCEPTANCE.md).
+The current release is `v0.1.1`. The complete MVP implementation contract is in [the MVP specification](docs/MVP_0.1_SPEC.md), and its evidence is mapped in [the acceptance matrix](docs/MVP_0.1_ACCEPTANCE.md).
 
 ## Terminal example
 
 ```text
 $ deadweight.gdt check res://levels/city.tscn --preset steam-deck
 
-deadweight.gdt 0.1.0
+deadweight.gdt 0.1.1
 
 Scene:       res://levels/city.tscn
 Analysis:    COMPLETE
@@ -53,7 +53,7 @@ Requirements: Go 1.24 or newer. Godot is not a build-time or runtime dependency.
 Install the tagged Go command:
 
 ```bash
-go install github.com/stfulldev/deadweight.gdt/cmd/deadweight.gdt@v0.1.0
+go install github.com/stfulldev/deadweight.gdt/cmd/deadweight.gdt@v0.1.1
 ```
 
 Or build from a source checkout and inject the release version:
@@ -61,12 +61,12 @@ Or build from a source checkout and inject the release version:
 ```bash
 git clone https://github.com/stfulldev/deadweight.gdt.git
 cd deadweight.gdt
-git checkout v0.1.0
-go build -ldflags "-X main.version=0.1.0" -o ./bin/deadweight.gdt ./cmd/deadweight.gdt
+git checkout v0.1.1
+go build -ldflags "-X main.version=0.1.1" -o ./bin/deadweight.gdt ./cmd/deadweight.gdt
 ./bin/deadweight.gdt --version
 ```
 
-Prebuilt release binaries are planned for a future distribution update; `v0.1.0` does not promise downloadable binary archives or package-manager formulas.
+Prebuilt release binaries are planned for a future distribution update; `v0.1.1` does not promise downloadable binary archives or package-manager formulas.
 
 ## Quick start
 
@@ -243,11 +243,11 @@ Example GitHub Actions step:
     --fail-on-partial
 ```
 
-The repository quality gate runs build, tests, race tests, and vet on Linux, macOS, and Windows, plus golangci-lint on Linux. No job installs Godot. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and the [release checklist](docs/RELEASE_0.1.0_CHECKLIST.md).
+The repository quality gate runs build, tests, race tests, and vet on Linux, macOS, and Windows, plus golangci-lint on Linux. No job installs Godot. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and the [current release checklist](docs/RELEASE_0.1.1_CHECKLIST.md).
 
 ## Roadmap
 
-The following are possible `0.2+` work, not features shipped or promised by `0.1.0`:
+The following are possible `0.2+` work, not features shipped or promised by `0.1.1`:
 
 - deeper `.tres` dependency analysis and machine-readable reports;
 - dependency trees, per-scene contributions, baselines, and diffs;

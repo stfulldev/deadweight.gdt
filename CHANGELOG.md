@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+## [0.1.1] — 2026-08-30
+
+Corrective release for real-world Godot format-3 compatibility and truthful tagged-install version provenance.
+
 ### Fixed
 
 - Accept literal LF, CRLF, and CR line endings inside quoted values and quoted property names in supported Godot `format=3` scenes, preserving source-aware malformed-input diagnostics.
@@ -11,7 +15,11 @@ All notable changes to this project are documented here.
 
 ### Boundaries
 
-- Godot `format=4`, `uid://` root inputs, and project-wide scanning remain unsupported. The published `v0.1.0` tag is immutable and still contains its original version-reporting behavior; the provenance fix applies to builds from this fixed source and future release tags.
+- Godot `format=4`, `uid://` root inputs, and project-wide scanning remain unsupported. The published `v0.1.0` tag is immutable and still contains its original version-reporting behavior.
+
+### Validation
+
+- Rechecked 139 declared main scenes from official `godotengine/godot-demo-projects` commit `0db80ca5fd22b9a40e05b9bc1e00af867fb7c712`: 103 complete, 16 expected partial, 9 unsupported format-4 roots, 11 unsupported UID roots, and 0 unexpected fatal results.
 
 ## [0.1.0] — 2026-08-29
 
@@ -61,4 +69,5 @@ All built-ins have status `heuristic` and stability `experimental`. They are sta
 
 See [the MVP specification](docs/MVP_0.1_SPEC.md) and [release checklist](docs/RELEASE_0.1.0_CHECKLIST.md) for the frozen contract and verification evidence.
 
+[0.1.1]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.1
 [0.1.0]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.0
