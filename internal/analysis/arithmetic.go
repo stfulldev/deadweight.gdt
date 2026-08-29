@@ -11,9 +11,10 @@ import (
 type ArithmeticOperation string
 
 const (
-	ArithmeticAdd      ArithmeticOperation = "add"
-	ArithmeticMultiply ArithmeticOperation = "multiply"
-	ArithmeticDepth    ArithmeticOperation = "depth"
+	ArithmeticAdd         ArithmeticOperation = "add"
+	ArithmeticMultiply    ArithmeticOperation = "multiply"
+	ArithmeticDepth       ArithmeticOperation = "depth"
+	ArithmeticCardinality ArithmeticOperation = "cardinality"
 )
 
 // OverflowError reports an invalid or overflowing non-negative int64
@@ -60,4 +61,16 @@ func checkedDepth(mountDepth, childDepth int64) (int64, error) {
 	}
 
 	return depth, nil
+}
+
+func checkedCardinality(value uint64) (int64, error) {
+	if value > uint64(math.MaxInt64) {
+		return 0, &OverflowError{
+			Operation: ArithmeticCardinality,
+			Left:      math.MaxInt64,
+			Right:     1,
+		}
+	}
+
+	return int64(value), nil
 }
