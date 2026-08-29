@@ -53,6 +53,10 @@ func TestRecursiveAnalyzerBuildsRootOnlyGraph(t *testing.T) {
 	if result.ParsedSceneFiles != 1 {
 		t.Fatalf("ParsedSceneFiles = %d, want 1", result.ParsedSceneFiles)
 	}
+	if result.Status != AnalysisComplete || result.Reliability != ReliabilityExact ||
+		result.Coverage != (Coverage{ParsedSceneFiles: 1}) || len(result.Diagnostics) != 0 {
+		t.Fatalf("completeness = %#v", result)
+	}
 	if builds != 1 {
 		t.Fatalf("local summary builds = %d, want 1", builds)
 	}
@@ -100,6 +104,10 @@ func TestRecursiveAnalyzerBuildsExactChainGraph(t *testing.T) {
 	}
 	if result.ParsedSceneFiles != 3 {
 		t.Fatalf("ParsedSceneFiles = %d, want 3", result.ParsedSceneFiles)
+	}
+	if result.Status != AnalysisComplete || result.Reliability != ReliabilityExact ||
+		result.Coverage != (Coverage{ResolvedSceneInstances: 2, ParsedSceneFiles: 3}) {
+		t.Fatalf("completeness = %#v/%#v", result.Status, result.Coverage)
 	}
 	for _, path := range []project.ResolvedPath{root, child, leaf} {
 		requireMemorySceneEffects(t, loader, path, 1)
@@ -159,6 +167,10 @@ func TestRecursiveAnalyzerCompactsOneHundredRepeatedGraphEdges(t *testing.T) {
 	if result.ParsedSceneFiles != 2 || len(builds) != 2 || len(resolver.calls) != 1 {
 		t.Fatalf("loader/build/resolver counts = %#v/%#v/%#v", loader.calls, builds, resolver.calls)
 	}
+	if result.Status != AnalysisComplete || result.Reliability != ReliabilityExact ||
+		result.Coverage != (Coverage{ResolvedSceneInstances: 100, ParsedSceneFiles: 2}) {
+		t.Fatalf("completeness = %q/%q/%#v", result.Status, result.Reliability, result.Coverage)
+	}
 	for _, path := range []project.ResolvedPath{root, child} {
 		requireMemorySceneEffects(t, loader, path, 1)
 	}
@@ -200,6 +212,11 @@ func TestRecursiveAnalyzerBuildsDiamondOnce(t *testing.T) {
 	}
 	if result.ParsedSceneFiles != 4 {
 		t.Fatalf("ParsedSceneFiles = %d, want 4", result.ParsedSceneFiles)
+	}
+	if result.Status != AnalysisComplete || result.Reliability != ReliabilityExact ||
+		result.Coverage != (Coverage{ResolvedSceneInstances: 4, ParsedSceneFiles: 4}) ||
+		len(result.Diagnostics) != 0 {
+		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
 	}
 	for _, path := range []project.ResolvedPath{root, left, right, shared} {
 		requireMemorySceneEffects(t, loader, path, 1)
@@ -377,6 +394,12 @@ func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(
 	}
 	if result.ParsedSceneFiles != 4 {
 		t.Fatalf("ParsedSceneFiles = %d, want 4", result.ParsedSceneFiles)
+	}
+	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
+		result.Coverage != (Coverage{
+			UnresolvedSceneInstances: 1, ParsedSceneFiles: 4, InheritedScenes: 1,
+		}) || len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != diagnostic.CodeInheritedScene {
+		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
 	}
 	for _, canonical := range []string{inherited.Canonical, base.Canonical, leaf.Canonical, asset.Canonical} {
 		if occurrences(result.Summary.ExternalResources, canonical) != 1 {

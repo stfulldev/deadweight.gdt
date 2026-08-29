@@ -20,6 +20,7 @@ func TestCatalog(t *testing.T) {
 		{Code: diagnostic.CodeInstancePlaceholder, Severity: diagnostic.SeverityWarning},
 		{Code: diagnostic.CodeUnsupportedResourcePath, Severity: diagnostic.SeverityWarning},
 		{Code: diagnostic.CodeUnclassifiedCustomType, Severity: diagnostic.SeverityWarning},
+		{Code: diagnostic.CodeUnsupportedParent, Severity: diagnostic.SeverityWarning},
 		{Code: diagnostic.CodeInvalidTSCNRoot, Severity: diagnostic.SeverityError},
 		{Code: diagnostic.CodeSceneDependencyCycle, Severity: diagnostic.SeverityError},
 		{Code: diagnostic.CodeInvalidConfiguration, Severity: diagnostic.SeverityError},
