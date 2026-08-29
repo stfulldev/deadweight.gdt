@@ -461,7 +461,7 @@ func TestRecursiveAnalyzerReturnsFatalNestedParseErrorWithoutSummary(t *testing.
 	}
 }
 
-func TestRecursiveAnalyzerTerminatesRecursiveReferenceWithoutSB2002(t *testing.T) {
+func TestRecursiveAnalyzerReportsRecursiveReferenceAsSB2002Cycle(t *testing.T) {
 	rootDir := t.TempDir()
 	root := testScenePath(rootDir, "root.tscn")
 	child := testScenePath(rootDir, "child.tscn")
@@ -480,12 +480,16 @@ func TestRecursiveAnalyzerTerminatesRecursiveReferenceWithoutSB2002(t *testing.T
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
 
 	summary, err := analyzer.Expand(root)
-	var recursive *RecursiveReferenceError
-	if !errors.As(err, &recursive) || !reflect.DeepEqual(summary, ExpandedSummary{}) {
+	var cycle *CycleError
+	if !errors.As(err, &cycle) || !reflect.DeepEqual(summary, ExpandedSummary{}) {
 		t.Fatalf("Expand() = %#v, %T %v", summary, err, err)
 	}
-	if _, coded := diagnostic.CodeOf(err); coded {
-		t.Fatalf("temporary recursive-reference error unexpectedly has a diagnostic code: %v", err)
+	if code, coded := diagnostic.CodeOf(err); !coded || code != diagnostic.CodeSceneDependencyCycle {
+		t.Fatalf("cycle diagnostic code = %q, %v", code, coded)
+	}
+	if !reflect.DeepEqual(cycle.Canonical, []string{root.Canonical, child.Canonical, root.Canonical}) ||
+		!reflect.DeepEqual(cycle.Display, []string{root.Display, child.Display, root.Display}) {
+		t.Fatalf("cycle = %#v", cycle)
 	}
 	if loader.calls[root.Canonical] != 1 || loader.calls[child.Canonical] != 1 {
 		t.Fatalf("loader calls = %#v", loader.calls)
