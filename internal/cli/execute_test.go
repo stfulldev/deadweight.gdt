@@ -37,6 +37,7 @@ func TestPresetsShowSteamDeck(t *testing.T) {
 	wantFragments := []string{
 		"Preset:      Steam Deck",
 		"Status:      heuristic",
+		"Stability:   experimental",
 		"Renderer:    Forward+",
 		"Nodes                         3,000",
 		"Shadow lights                     8",
@@ -46,6 +47,30 @@ func TestPresetsShowSteamDeck(t *testing.T) {
 		if !strings.Contains(stdout.String(), fragment) {
 			t.Errorf("stdout does not contain %q:\n%s", fragment, stdout.String())
 		}
+	}
+}
+
+func TestPresetsListUsesProductOrderAndLifecycleLabels(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := cli.Execute([]string{"presets"}, &stdout, &stderr, cli.BuildInfo{Version: "test"})
+
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Built-in presets (heuristic, experimental)") {
+		t.Fatalf("stdout does not identify lifecycle labels:\n%s", output)
+	}
+
+	mobile := strings.Index(output, "\nmobile\n")
+	steamDeck := strings.Index(output, "\nsteam-deck\n")
+	desktop := strings.Index(output, "\ndesktop\n")
+	if mobile < 0 || steamDeck <= mobile || desktop <= steamDeck {
+		t.Fatalf("preset IDs are not in product order:\n%s", output)
 	}
 }
 
@@ -59,7 +84,8 @@ func TestUnknownPresetUsesFatalUsageExitCode(t *testing.T) {
 	if exitCode != 2 {
 		t.Fatalf("exit code = %d, want 2", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "available presets: mobile, steam-deck, desktop") {
+	want := `unknown preset "unknown"; available presets: mobile, steam-deck, desktop`
+	if !strings.Contains(stderr.String(), want) {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }

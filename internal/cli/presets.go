@@ -36,9 +36,9 @@ func newPresetsCommand() *cobra.Command {
 				return err
 			}
 
-			item, ok := catalog.Find(args[0])
-			if !ok {
-				return fmt.Errorf("unknown preset %q; available presets: mobile, steam-deck, desktop", args[0])
+			item, err := catalog.Find(args[0])
+			if err != nil {
+				return err
 			}
 
 			_, err = fmt.Fprint(cmd.OutOrStdout(), renderPreset(item))

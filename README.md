@@ -6,6 +6,7 @@ The finished MVP will expand nested text scenes, calculate effective scene metri
 
 > [!IMPORTANT]
 > Built-in presets are heuristic guardrails, not performance guarantees. Always profile your game on target hardware.
+> The `steam-deck` preset is not an official Valve certification profile or endorsement.
 
 ## Project status
 
