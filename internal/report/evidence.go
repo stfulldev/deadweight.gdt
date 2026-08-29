@@ -141,7 +141,11 @@ func writeEvidence(output *strings.Builder, result analysis.RecursiveResult, sty
 		}
 	}
 
-	diagnostics := sortedDiagnostics(result.Diagnostics)
+	writeDiagnostics(output, result.Diagnostics, style)
+}
+
+func writeDiagnostics(output *strings.Builder, items []diagnostic.Diagnostic, style styler) {
+	diagnostics := sortedDiagnostics(items)
 	if len(diagnostics) > 0 {
 		output.WriteString("\nDiagnostics\n")
 		for _, item := range diagnostics {

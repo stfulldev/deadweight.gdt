@@ -35,7 +35,7 @@ type Dependencies struct {
 	LoadBuiltInPresets func() (preset.Catalog, error)
 }
 
-// Application executes the four frozen MVP command flows.
+// Application executes the standalone CLI command flows.
 type Application struct {
 	dependencies Dependencies
 }
@@ -92,6 +92,17 @@ func NewDefault() *Application {
 func (application *Application) Inspect(request InspectRequest) (InspectResult, error) {
 	result, _, err := application.inspect(request.SceneRequest)
 	return result, err
+}
+
+// Tree executes the same single-scene analysis as Inspect for dependency-tree
+// presentation, without applying policy or budget evaluation.
+func (application *Application) Tree(request TreeRequest) (TreeResult, error) {
+	result, _, err := application.inspect(request.SceneRequest)
+	if err != nil {
+		return TreeResult{}, err
+	}
+
+	return TreeResult{Inspect: result}, nil
 }
 
 // Check executes analysis followed by effective policy and budget evaluation.

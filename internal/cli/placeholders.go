@@ -52,6 +52,43 @@ func newInspectCommand(service Application, global *globalOptions) *cobra.Comman
 	return command
 }
 
+func newTreeCommand(service Application, global *globalOptions) *cobra.Command {
+	formatValue := string(presentationText)
+	command := &cobra.Command{
+		Use:   "tree <scene>",
+		Short: "Explain the scene dependency tree",
+		Args:  sceneArguments(&formatValue),
+		RunE: func(command *cobra.Command, args []string) error {
+			format, _ := parsePresentationFormat(formatValue)
+			options := global.reportOptions(command.OutOrStdout())
+			result, err := service.Tree(application.TreeRequest{SceneRequest: application.SceneRequest{
+				Scene:   args[0],
+				Project: global.project,
+				Config:  global.config,
+			}})
+			if err != nil {
+				return wrapPresentationError(err, format, options)
+			}
+
+			var rendered string
+			if format == presentationJSON {
+				rendered, err = report.TreeJSON(result, options)
+			} else {
+				rendered, err = report.Tree(result, options)
+			}
+			if err != nil {
+				return wrapPresentationError(fmt.Errorf("render dependency tree: %w", err), format, options)
+			}
+
+			_, err = fmt.Fprint(command.OutOrStdout(), rendered)
+			return wrapPresentationError(err, format, options)
+		},
+	}
+	command.Flags().StringVar(&formatValue, "format", string(presentationText), "output format: text or json")
+
+	return command
+}
+
 func newCheckCommand(service Application, global *globalOptions) *cobra.Command {
 	var presetID string
 	var profileID string

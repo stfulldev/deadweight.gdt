@@ -6,19 +6,32 @@
   "required": ["schema_version", "kind", "tool"],
   "properties": {
     "schema_version": { "const": 1 },
-    "kind": { "enum": ["inspect", "check", "error"] },
+    "kind": { "enum": ["inspect", "tree", "check", "error"] },
     "tool": { "$ref": "#/$defs/tool" },
     "scene": { "$ref": "#/$defs/scene" },
     "configuration": { "$ref": "#/$defs/configuration" },
     "analysis": { "$ref": "#/$defs/analysis" },
     "policy": { "$ref": "#/$defs/policy" },
     "evaluation": { "$ref": "#/$defs/evaluation" },
+    "dependency_tree": { "$ref": "#/$defs/dependencyTree" },
     "error": { "$ref": "#/$defs/error" }
   },
   "oneOf": [
     {
       "properties": { "kind": { "const": "inspect" } },
       "required": ["scene", "configuration", "analysis"],
+      "not": {
+        "anyOf": [
+          { "required": ["policy"] },
+          { "required": ["evaluation"] },
+          { "required": ["dependency_tree"] },
+          { "required": ["error"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "tree" } },
+      "required": ["scene", "configuration", "analysis", "dependency_tree"],
       "not": {
         "anyOf": [
           { "required": ["policy"] },
@@ -30,7 +43,12 @@
     {
       "properties": { "kind": { "const": "check" } },
       "required": ["scene", "configuration", "analysis", "policy", "evaluation"],
-      "not": { "required": ["error"] }
+      "not": {
+        "anyOf": [
+          { "required": ["dependency_tree"] },
+          { "required": ["error"] }
+        ]
+      }
     },
     {
       "properties": { "kind": { "const": "error" } },
@@ -41,7 +59,8 @@
           { "required": ["configuration"] },
           { "required": ["analysis"] },
           { "required": ["policy"] },
-          { "required": ["evaluation"] }
+          { "required": ["evaluation"] },
+          { "required": ["dependency_tree"] }
         ]
       }
     }
@@ -74,6 +93,94 @@
       "required": ["path"],
       "properties": {
         "path": { "$ref": "#/$defs/portablePath" }
+      }
+    },
+    "dependencyTreeEntry": {
+      "type": "object",
+      "required": [
+        "depth", "source", "target", "kind", "resolved", "occurrences",
+        "reliability", "back_reference"
+      ],
+      "properties": {
+        "depth": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "source": { "$ref": "#/$defs/portablePath" },
+        "target": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "kind": { "enum": ["instance", "inheritance"] },
+        "resolved": { "type": "boolean" },
+        "occurrences": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "back_reference": { "type": "boolean" },
+        "classification": {
+          "enum": [
+            "missing_external_resource", "unresolved_path", "imported_scene",
+            "unsupported_scene", "sub_resource", "placeholder", "unavailable_scene",
+            "inherited_scene"
+          ]
+        },
+        "resource_id": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "raw_target": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "resolution_reason": {
+          "enum": [
+            "resolved", "invalid_project_root", "invalid_working_directory", "invalid_scene_input",
+            "empty", "uid_only", "user_data", "unsupported_target", "missing",
+            "outside_project", "filesystem", "invalid_declaring_scene"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "resolved": { "const": true } }, "required": ["resolved"] },
+          "then": {
+            "properties": {
+              "target": { "$ref": "#/$defs/portablePath" }
+            },
+            "not": {
+              "anyOf": [
+                { "required": ["classification"] },
+                { "required": ["resolution_reason"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resolved": { "const": false } }, "required": ["resolved"] },
+          "then": {
+            "required": ["classification", "resolution_reason"],
+            "properties": { "back_reference": { "const": false } }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "inheritance" } }, "required": ["kind"] },
+          "then": { "properties": { "reliability": { "const": "approximate" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": { "const": "instance" },
+              "resolved": { "const": true }
+            },
+            "required": ["kind", "resolved"]
+          },
+          "then": { "properties": { "reliability": { "const": "exact" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": { "const": "instance" },
+              "resolved": { "const": false }
+            },
+            "required": ["kind", "resolved"]
+          },
+          "then": { "properties": { "reliability": { "const": "lower_bound" } } }
+        }
+      ]
+    },
+    "dependencyTree": {
+      "type": "object",
+      "required": ["root", "entries"],
+      "properties": {
+        "root": { "$ref": "#/$defs/portablePath" },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/dependencyTreeEntry" } }
       }
     },
     "configuration": {

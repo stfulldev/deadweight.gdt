@@ -16,20 +16,22 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
 	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
+	"github.com/stfulldev/deadweight.gdt/internal/project"
 )
 
 const reportSchemaVersion = 1
 
 type documentV1 struct {
-	SchemaVersion int              `json:"schema_version"`
-	Kind          string           `json:"kind"`
-	Tool          toolV1           `json:"tool"`
-	Scene         *sceneV1         `json:"scene,omitempty"`
-	Configuration *configurationV1 `json:"configuration,omitempty"`
-	Analysis      *analysisV1      `json:"analysis,omitempty"`
-	Policy        *policyV1        `json:"policy,omitempty"`
-	Evaluation    *evaluationV1    `json:"evaluation,omitempty"`
-	Error         *fatalErrorV1    `json:"error,omitempty"`
+	SchemaVersion  int               `json:"schema_version"`
+	Kind           string            `json:"kind"`
+	Tool           toolV1            `json:"tool"`
+	Scene          *sceneV1          `json:"scene,omitempty"`
+	Configuration  *configurationV1  `json:"configuration,omitempty"`
+	Analysis       *analysisV1       `json:"analysis,omitempty"`
+	Policy         *policyV1         `json:"policy,omitempty"`
+	Evaluation     *evaluationV1     `json:"evaluation,omitempty"`
+	DependencyTree *dependencyTreeV1 `json:"dependency_tree,omitempty"`
+	Error          *fatalErrorV1     `json:"error,omitempty"`
 }
 
 type toolV1 struct {
@@ -124,12 +126,65 @@ type fatalErrorV1 struct {
 	Details  []string            `json:"details,omitempty"`
 }
 
+type dependencyTreeV1 struct {
+	Root    string                  `json:"root"`
+	Entries []dependencyTreeEntryV1 `json:"entries"`
+}
+
+type dependencyTreeEntryV1 struct {
+	Depth            int64                         `json:"depth"`
+	Source           string                        `json:"source"`
+	Target           string                        `json:"target"`
+	Kind             analysis.EdgeKind             `json:"kind"`
+	Resolved         bool                          `json:"resolved"`
+	Occurrences      int64                         `json:"occurrences"`
+	Reliability      analysis.Reliability          `json:"reliability"`
+	BackReference    bool                          `json:"back_reference"`
+	Classification   analysis.TargetClassification `json:"classification,omitempty"`
+	ResourceID       string                        `json:"resource_id,omitempty"`
+	RawTarget        string                        `json:"raw_target,omitempty"`
+	ResolutionReason project.ResolutionReason      `json:"resolution_reason,omitempty"`
+}
+
 // InspectJSON renders one portable schema-version-one inspect document.
 func InspectJSON(result application.InspectResult, options Options) (string, error) {
 	document, err := inspectDocumentV1(result, options)
 	if err != nil {
 		return "", err
 	}
+
+	return encodeDocumentV1(document)
+}
+
+// TreeJSON renders one portable schema-version-one dependency-tree document.
+func TreeJSON(result application.TreeResult, options Options) (string, error) {
+	tree, err := projectDependencyTree(result)
+	if err != nil {
+		return "", err
+	}
+	document, err := inspectDocumentV1(result.Inspect, options)
+	if err != nil {
+		return "", err
+	}
+	entries := make([]dependencyTreeEntryV1, 0, len(tree.Entries))
+	for _, entry := range tree.Entries {
+		entries = append(entries, dependencyTreeEntryV1{
+			Depth:            entry.Depth,
+			Source:           entry.Source,
+			Target:           entry.Target,
+			Kind:             entry.Kind,
+			Resolved:         entry.Resolved,
+			Occurrences:      entry.Occurrences,
+			Reliability:      entry.Reliability,
+			BackReference:    entry.BackReference,
+			Classification:   entry.Classification,
+			ResourceID:       entry.ResourceID,
+			RawTarget:        entry.RawTarget,
+			ResolutionReason: entry.ResolutionReason,
+		})
+	}
+	document.Kind = "tree"
+	document.DependencyTree = &dependencyTreeV1{Root: tree.Root, Entries: entries}
 
 	return encodeDocumentV1(document)
 }

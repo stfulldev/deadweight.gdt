@@ -11,6 +11,8 @@ All notable changes to this project are documented here.
 - Retain ordered metrics, checked coverage, grouped diagnostics, effective policy metadata, comparisons, partial policy, and verdict evidence for automation without exposing canonical checkout paths.
 - Add deterministic direct per-scene contribution evidence whose additive occurrence values reconcile to root metrics while depth remains a maximum and shared resources/dependencies remain ownerless unique unions.
 - Add paired inspect-only `--metric` and `--top` selectors for an opt-in top-contributors text/JSON projection, with portable tie-breaking and explicit lower-bound or approximate row reliability.
+- Add `tree <scene>` text and JSON reports that project every authoritative dependency edge once in deterministic portable preorder, compact repeated declarations, and bound diamond expansion with explicit back-references.
+- Retain resolved, inherited, and unresolved edge kind, local multiplicity, classification, resolution context, and conservative reliability without reparsing scenes or changing cycle failures.
 
 ## [0.1.1] — 2026-08-30
 
