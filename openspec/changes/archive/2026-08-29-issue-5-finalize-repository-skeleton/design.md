@@ -43,7 +43,7 @@ Alternative considered: constructors that make invalid values impossible. Reject
 
 The diagnostic package will define a narrow error protocol whose method returns a `diagnostic.Code`, plus a helper that finds that protocol through wrapped error chains. It will not own parser-specific location or configuration-specific context.
 
-`tscn.ParseError.Code` will change from `string` to `diagnostic.Code`, retain its existing source position and message fields, and implement the protocol. The parser will use the shared `SB2001` constant. Existing string formatting remains unchanged because the named code type formats as its underlying string.
+`tscn.ParseError.Code` will change from `string` to `diagnostic.Code`, retain its existing source position and message fields, and implement the protocol. The parser will use the shared `SB2001` constant. Existing `Error()` formatting remains unchanged because the named code type formats as its underlying string. An optional code-free diagnostic-message method lets presentation code preserve source context without repeating the stable code already supplied by the typed protocol.
 
 Alternative considered: replace every typed domain error with a single `diagnostic.Error`. Rejected because parser positions, future cycle chains, configuration paths, and overflow operands have different structured context; a narrow protocol preserves those useful types.
 
@@ -51,7 +51,7 @@ Alternative considered: leave `ParseError.Code` as a string and add conversion o
 
 ### 4. Keep process policy centralized in CLI
 
-CLI orchestration will recognize code-bearing errors through the shared protocol, render `ERROR <code>: <message>` without a stack trace, and retain exit code `2` for fatal failures. Unknown/untyped errors keep the existing `ERROR: <message>` fallback until later slices add their domain mappings. Domain packages continue returning values or errors and receive in-memory data/readers; they do not write process streams or exit.
+CLI orchestration will recognize code-bearing errors through the shared protocol, obtain code-free text through the optional diagnostic-message contract when available, render `ERROR <code>: <message>` without a stack trace, and retain exit code `2` for fatal failures. Unknown/untyped errors keep the existing `ERROR: <message>` fallback until later slices add their domain mappings. Domain packages continue returning values or errors and receive in-memory data/readers; they do not write process streams or exit.
 
 Alternative considered: make domain errors render themselves. Rejected because presentation, color, path display, and stream policy belong to the CLI/report layers.
 
@@ -74,7 +74,7 @@ Alternative considered: add empty packages and placeholder types for the entire 
 - [Linear catalog lookup adds repeated small scans] → Each catalog has at most eleven entries, so deterministic single-source behavior is more valuable than a map optimization; benchmarks are unnecessary at this scale.
 - [Changing `ParseError.Code` to a named type can break internal comparisons or composite literals] → The underlying representation remains string-compatible for constants and formatting; update all repository call sites and compile every package.
 - [Validation APIs can be skipped by future callers] → Exercise them at domain boundaries as those boundaries are introduced and keep invariant tests adjacent to the value types.
-- [A generic coded-error renderer may expose a code twice if an error message already includes it] → Keep structured error `Error()` text free to preserve existing domain context and make the CLI renderer the only prefix owner when the protocol is recognized.
+- [A generic coded-error renderer may expose a code twice if legacy `Error()` text already includes it] → Let such errors provide code-free diagnostic text while preserving their existing `Error()` compatibility; the CLI renderer remains the only output-prefix owner.
 - [Manual boundary audits can regress later] → Re-evaluate import/process rules in each downstream issue; add automated architecture enforcement only if package growth makes review unreliable.
 
 ## Migration Plan
