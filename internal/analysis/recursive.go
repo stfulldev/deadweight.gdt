@@ -92,10 +92,18 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	if err != nil {
 		return RecursiveResult{}, err
 	}
+	completion, err := finalizeCompleteness(summary, graph, parsedSceneFiles)
+	if err != nil {
+		return RecursiveResult{}, err
+	}
 	result := RecursiveResult{
 		Summary:          summary,
 		Graph:            graph,
 		ParsedSceneFiles: parsedSceneFiles,
+		Status:           completion.Status,
+		Reliability:      completion.Reliability,
+		Coverage:         completion.Coverage,
+		Diagnostics:      completion.Diagnostics,
 	}
 
 	return cloneRecursiveResult(result), nil
@@ -270,7 +278,7 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 				continue
 			case errors.As(expandErr, &unavailable):
 				for _, mount := range application.mounts {
-					evidence := unresolvedFromMount(path, mount, TargetUnavailableScene, project.ResolutionResolved)
+					evidence := unresolvedFromMount(path, mount, TargetUnavailableScene, project.ResolutionFilesystem)
 					evidence.TargetCanonical = application.path.Canonical
 					evidence.TargetDisplay = application.path.Display
 					evidence.TargetOriginal = application.path.Original
@@ -365,9 +373,10 @@ func resourceIdentities(
 	identities := make(map[ResourceIdentity]struct{}, len(resources))
 	for _, resolved := range resources {
 		identity := ResourceIdentity{
-			DeclaringScene: path.Canonical,
-			ResourceID:     resolved.resource.ID,
-			RawPath:        resolved.resource.Path,
+			DeclaringScene:   path.Canonical,
+			ResourceID:       resolved.resource.ID,
+			RawPath:          resolved.resource.Path,
+			ResolutionReason: resolved.resolution.Reason,
 		}
 		if resolved.resolution.Resolved() {
 			identity = ResourceIdentity{
@@ -375,7 +384,7 @@ func resourceIdentities(
 				Canonical: resolved.resolution.Path.Canonical,
 			}
 		}
-		identities[identity] = struct{}{}
+		addResourceIdentity(identities, identity)
 	}
 
 	return sortedResourceIdentities(identities)
@@ -707,7 +716,7 @@ func (builder *summaryBuilder) applyResolved(
 
 func (builder *summaryBuilder) unionResources(resources []ResourceIdentity) {
 	for _, identity := range resources {
-		builder.resources[identity] = struct{}{}
+		addResourceIdentity(builder.resources, identity)
 	}
 }
 
@@ -735,8 +744,11 @@ func sortedResourceIdentities(resourcesSet map[ResourceIdentity]struct{}) []Reso
 		if first.ResourceID != second.ResourceID {
 			return first.ResourceID < second.ResourceID
 		}
+		if first.RawPath != second.RawPath {
+			return first.RawPath < second.RawPath
+		}
 
-		return first.RawPath < second.RawPath
+		return first.ResolutionReason < second.ResolutionReason
 	})
 
 	return resources
@@ -746,11 +758,32 @@ func mergeResourceIdentities(groups ...[]ResourceIdentity) []ResourceIdentity {
 	resources := make(map[ResourceIdentity]struct{})
 	for _, group := range groups {
 		for _, identity := range group {
-			resources[identity] = struct{}{}
+			addResourceIdentity(resources, identity)
 		}
 	}
 
 	return sortedResourceIdentities(resources)
+}
+
+func addResourceIdentity(resources map[ResourceIdentity]struct{}, identity ResourceIdentity) {
+	for existing := range resources {
+		if sameResourceIdentity(existing, identity) {
+			if identity.ResolutionReason < existing.ResolutionReason {
+				delete(resources, existing)
+				resources[identity] = struct{}{}
+			}
+			return
+		}
+	}
+	resources[identity] = struct{}{}
+}
+
+func sameResourceIdentity(left, right ResourceIdentity) bool {
+	return left.Resolved == right.Resolved &&
+		left.Canonical == right.Canonical &&
+		left.DeclaringScene == right.DeclaringScene &&
+		left.ResourceID == right.ResourceID &&
+		left.RawPath == right.RawPath
 }
 
 func (builder *summaryBuilder) finish() ExpandedSummary {

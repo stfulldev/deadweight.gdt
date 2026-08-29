@@ -46,11 +46,79 @@ type DependencyGraph struct {
 	SceneDependencies int64
 }
 
+// AnalysisStatus describes whether a successful static result is complete.
+type AnalysisStatus string
+
+const (
+	AnalysisComplete AnalysisStatus = "complete"
+	AnalysisPartial  AnalysisStatus = "partial"
+)
+
+// Valid reports whether status is part of the MVP analysis taxonomy.
+func (status AnalysisStatus) Valid() bool {
+	return status == AnalysisComplete || status == AnalysisPartial
+}
+
+// Reliability describes how known metrics relate to unavailable static data.
+type Reliability string
+
+const (
+	ReliabilityExact       Reliability = "exact"
+	ReliabilityLowerBound  Reliability = "lower_bound"
+	ReliabilityApproximate Reliability = "approximate"
+)
+
+// Valid reports whether reliability is part of the MVP analysis taxonomy.
+func (reliability Reliability) Valid() bool {
+	return reliability == ReliabilityExact ||
+		reliability == ReliabilityLowerBound ||
+		reliability == ReliabilityApproximate
+}
+
+// Coverage publishes checked root-level analysis coverage.
+type Coverage struct {
+	ResolvedSceneInstances   int64
+	UnresolvedSceneInstances int64
+	ParsedSceneFiles         int64
+	InheritedScenes          int64
+}
+
+// Validate checks the non-negative coverage domain and subset relationship.
+func (coverage Coverage) Validate() error {
+	fields := []struct {
+		name  string
+		value int64
+	}{
+		{name: "resolved_scene_instances", value: coverage.ResolvedSceneInstances},
+		{name: "unresolved_scene_instances", value: coverage.UnresolvedSceneInstances},
+		{name: "parsed_scene_files", value: coverage.ParsedSceneFiles},
+		{name: "inherited_scenes", value: coverage.InheritedScenes},
+	}
+	for _, field := range fields {
+		if field.value < 0 {
+			return fmt.Errorf("coverage %s must be non-negative, got %d", field.name, field.value)
+		}
+	}
+	if coverage.InheritedScenes > coverage.UnresolvedSceneInstances {
+		return fmt.Errorf(
+			"coverage inherited_scenes %d exceeds unresolved_scene_instances %d",
+			coverage.InheritedScenes,
+			coverage.UnresolvedSceneInstances,
+		)
+	}
+
+	return nil
+}
+
 // RecursiveResult pairs occurrence aggregation with its authoritative graph.
 type RecursiveResult struct {
 	Summary          ExpandedSummary
 	Graph            DependencyGraph
 	ParsedSceneFiles int64
+	Status           AnalysisStatus
+	Reliability      Reliability
+	Coverage         Coverage
+	Diagnostics      []diagnostic.Diagnostic
 }
 
 // CycleError is a fatal, explainable resolved-scene dependency cycle.
@@ -87,9 +155,10 @@ func cloneDependencyGraph(graph DependencyGraph) DependencyGraph {
 }
 
 func cloneRecursiveResult(result RecursiveResult) RecursiveResult {
-	return RecursiveResult{
-		Summary:          cloneExpandedSummary(result.Summary),
-		Graph:            cloneDependencyGraph(result.Graph),
-		ParsedSceneFiles: result.ParsedSceneFiles,
-	}
+	cloned := result
+	cloned.Summary = cloneExpandedSummary(result.Summary)
+	cloned.Graph = cloneDependencyGraph(result.Graph)
+	cloned.Diagnostics = append([]diagnostic.Diagnostic(nil), result.Diagnostics...)
+
+	return cloned
 }

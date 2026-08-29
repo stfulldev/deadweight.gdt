@@ -92,7 +92,7 @@ func (builder *graphBuilder) addEdge(edge GraphEdge) error {
 
 func (builder *graphBuilder) addResources(resources []ResourceIdentity) {
 	for _, resource := range resources {
-		builder.resources[resource] = struct{}{}
+		addResourceIdentity(builder.resources, resource)
 	}
 }
 
@@ -206,6 +206,7 @@ func (state *invocationState) visitGraphScene(path project.ResolvedPath, builder
 					edge.ToCanonical = ""
 					edge.ToDisplay = ""
 					edge.Classification = TargetUnavailableScene
+					edge.ResolutionReason = project.ResolutionFilesystem
 					if err := builder.addEdge(edge); err != nil {
 						return err
 					}
