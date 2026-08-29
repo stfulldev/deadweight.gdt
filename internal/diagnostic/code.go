@@ -11,6 +11,7 @@ const (
 	CodeInstancePlaceholder     Code = "SB1005"
 	CodeUnsupportedResourcePath Code = "SB1006"
 	CodeUnclassifiedCustomType  Code = "SB1007"
+	CodeUnsupportedParent       Code = "SB1008"
 	CodeInvalidTSCNRoot         Code = "SB2001"
 	CodeSceneDependencyCycle    Code = "SB2002"
 	CodeInvalidConfiguration    Code = "SB2003"
@@ -31,6 +32,7 @@ var definitions = [...]Definition{
 	{Code: CodeInstancePlaceholder, Severity: SeverityWarning},
 	{Code: CodeUnsupportedResourcePath, Severity: SeverityWarning},
 	{Code: CodeUnclassifiedCustomType, Severity: SeverityWarning},
+	{Code: CodeUnsupportedParent, Severity: SeverityWarning},
 	{Code: CodeInvalidTSCNRoot, Severity: SeverityError},
 	{Code: CodeSceneDependencyCycle, Severity: SeverityError},
 	{Code: CodeInvalidConfiguration, Severity: SeverityError},

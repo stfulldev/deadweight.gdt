@@ -150,10 +150,11 @@ shadow_enabled = true
 		return BuildLocalSummary(document)
 	}
 
-	summary, err := analyzer.Expand(root)
+	result, err := analyzer.Analyze(root)
 	if err != nil {
-		t.Fatalf("Expand() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
+	summary := result.Summary
 	wantMetrics := metrics.Values{
 		Nodes:             6,
 		TreeDepth:         6,
@@ -425,10 +426,11 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
 
-	summary, err := analyzer.Expand(root)
+	result, err := analyzer.Analyze(root)
 	if err != nil {
-		t.Fatalf("Expand() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
+	summary := result.Summary
 	if summary.Metrics != (metrics.Values{
 		Nodes: 13, TreeDepth: 2, SceneInstances: 12, MeshInstances: 1,
 		ExternalResources: 10, SceneDependencies: 2,
@@ -472,6 +474,13 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 	if loader.calls[unavailable.Canonical] != 1 || loader.calls[inherited.Canonical] != 1 || loader.calls[wrongType.Canonical] != 1 {
 		t.Fatalf("loader calls = %#v", loader.calls)
 	}
+	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
+		result.Coverage != (Coverage{
+			ResolvedSceneInstances: 1, UnresolvedSceneInstances: 11,
+			ParsedSceneFiles: 3, InheritedScenes: 1,
+		}) || len(result.Diagnostics) != 11 {
+		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
+	}
 }
 
 func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.T) {
@@ -498,10 +507,11 @@ func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
 
-	summary, err := analyzer.Expand(root)
+	result, err := analyzer.Analyze(root)
 	if err != nil {
-		t.Fatalf("Expand() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
+	summary := result.Summary
 	if summary.Metrics != (metrics.Values{
 		Nodes: 3, TreeDepth: 1, SceneInstances: 1, MeshInstances: 1,
 		ExternalResources: 1, SceneDependencies: 1,
@@ -510,6 +520,10 @@ func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.
 	}
 	if !summary.DepthPartial || len(summary.ParentFindings) != 1 || summary.ParentFindings[0].DeclaringScene != root.Canonical {
 		t.Fatalf("depth evidence = %v/%#v", summary.DepthPartial, summary.ParentFindings)
+	}
+	if result.Status != AnalysisPartial || result.Reliability != ReliabilityLowerBound ||
+		len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != diagnostic.CodeUnsupportedParent {
+		t.Fatalf("completeness = %q/%q/%#v", result.Status, result.Reliability, result.Diagnostics)
 	}
 }
 

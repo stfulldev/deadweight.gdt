@@ -21,6 +21,23 @@ const (
 	TargetInheritedScene          TargetClassification = "inherited_scene"
 )
 
+// Valid reports whether classification is part of the MVP target taxonomy.
+func (classification TargetClassification) Valid() bool {
+	switch classification {
+	case TargetMissingExternalResource,
+		TargetUnresolvedPath,
+		TargetImportedScene,
+		TargetUnsupportedScene,
+		TargetSubResource,
+		TargetPlaceholder,
+		TargetUnavailableScene,
+		TargetInheritedScene:
+		return true
+	default:
+		return false
+	}
+}
+
 // SceneInstanceCoverage counts scene-instance occurrences whose complete
 // nested contribution is or is not statically available.
 type SceneInstanceCoverage struct {
@@ -31,11 +48,12 @@ type SceneInstanceCoverage struct {
 // ResourceIdentity is either a canonical resolved resource identity or a
 // document-local unresolved declaration identity.
 type ResourceIdentity struct {
-	Resolved       bool
-	Canonical      string
-	DeclaringScene string
-	ResourceID     string
-	RawPath        string
+	Resolved         bool
+	Canonical        string
+	DeclaringScene   string
+	ResourceID       string
+	RawPath          string
+	ResolutionReason project.ResolutionReason
 }
 
 // UnresolvedInstance preserves source and target evidence for one or more
