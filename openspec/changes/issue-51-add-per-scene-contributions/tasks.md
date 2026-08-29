@@ -28,4 +28,4 @@
 - [x] 5.1 Document contribution semantics, supported top metrics, unique-union limitations, examples, and the row-level reliability boundary in README/CHANGELOG/roadmap material; verify examples match CLI help and preserve the static-analysis disclaimer.
 - [x] 5.2 Run `gofmt`, focused package tests, `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and golangci-lint; verify every command succeeds without a shipped runtime dependency change.
 - [x] 5.3 Run `openspec validate --all --strict` and `git diff --check`; verify all repository specs and the issue #51 change are valid and the worktree contains no formatting defects.
-- [ ] 5.4 Commit implementation and documentation separately from test fixtures/goldens as distinct feature and test commits, push the Draft PR, and verify the remote head contains both auditable commits before OpenSpec archive and hosted CI.
+- [x] 5.4 Commit implementation and documentation separately from test fixtures/goldens as distinct feature and test commits, push the Draft PR, and verify the remote head contains both auditable commits before OpenSpec archive and hosted CI.
