@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="deps/child.tscn" id="1_child"]
+[ext_resource type="Texture2D" path="assets/shared.png" id="2_texture"]
+
+[node name="Root" type="Node3D"]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true
+
+[node name="Child" parent="." instance=ExtResource("1_child")]
