@@ -4,7 +4,14 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
-No unreleased changes.
+### Fixed
+
+- Accept literal LF, CRLF, and CR line endings inside quoted values and quoted property names in supported Godot `format=3` scenes, preserving source-aware malformed-input diagnostics.
+- Derive the displayed version from semantic Go module build metadata when no explicit linker version is supplied, while keeping linker injection authoritative and untagged local builds labeled `dev`.
+
+### Boundaries
+
+- Godot `format=4`, `uid://` root inputs, and project-wide scanning remain unsupported. The published `v0.1.0` tag is immutable and still contains its original version-reporting behavior; the provenance fix applies to builds from this fixed source and future release tags.
 
 ## [0.1.0] — 2026-08-29
 

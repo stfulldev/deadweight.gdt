@@ -8,13 +8,13 @@
 
 - [x] 2.1 Add composition-root tests for explicit linker precedence, semantic module versions with one leading `v`, pseudo-versions, empty/`(devel)` metadata, and the `dev` fallback; verify the new tests fail only for the missing resolver before implementation.
 - [x] 2.2 Resolve the command version from explicit linker input and embedded Go build metadata without changing CLI/report packages or adding dependencies; verify `go test ./cmd/deadweight.gdt` and a local `go run ./cmd/deadweight.gdt --version` pass.
-- [ ] 2.3 Build with an explicit linker version and build/install the fixed source through versioned Go module metadata after its commit is available remotely; verify the explicit value wins, the module-derived value drops one leading `v`, and the immutable `v0.1.0` ref is unchanged.
+- [x] 2.3 Build with an explicit linker version and build/install the fixed source through versioned Go module metadata after its commit is available remotely; verify the explicit value wins, the module-derived value drops one leading `v`, and the immutable `v0.1.0` ref is unchanged.
 
 ## 3. Real-Project E2E Coverage and Documentation
 
-- [ ] 3.1 Add an opt-in PowerShell E2E runner that accepts explicit binary/demo paths, inspects every declared main scene, classifies COMPLETE, PARTIAL, format-4, and UID-root outcomes, and exits nonzero for other fatals; verify help/argument failures and a run against the recorded corpus commit are deterministic.
-- [ ] 3.2 Build the fixed CLI and run the E2E runner against `godot-demo-projects` commit `0db80ca5fd22b9a40e05b9bc1e00af867fb7c712`; verify supported format-3 closures have no unexpected fatal result and record the complete category counts in Draft PR #48.
-- [ ] 3.3 Replace the empty Unreleased changelog entry with the parser and version-provenance fixes, explicitly preserving the format-4, UID-root, project-scan, and immutable-v0.1.0 boundaries; verify the text matches the implemented and validated behavior.
+- [x] 3.1 Add an opt-in PowerShell E2E runner that accepts explicit binary/demo paths, inspects every declared main scene, classifies COMPLETE, PARTIAL, format-4, and UID-root outcomes, and exits nonzero for other fatals; verify help/argument failures and a run against the recorded corpus commit are deterministic.
+- [x] 3.2 Build the fixed CLI and run the E2E runner against `godot-demo-projects` commit `0db80ca5fd22b9a40e05b9bc1e00af867fb7c712`; verify supported format-3 closures have no unexpected fatal result and record the complete category counts in Draft PR #48.
+- [x] 3.3 Replace the empty Unreleased changelog entry with the parser and version-provenance fixes, explicitly preserving the format-4, UID-root, project-scan, and immutable-v0.1.0 boundaries; verify the text matches the implemented and validated behavior.
 
 ## 4. Quality Gates and Delivery
 
