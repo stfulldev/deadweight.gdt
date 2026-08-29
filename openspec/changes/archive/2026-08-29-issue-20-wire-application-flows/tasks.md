@@ -20,4 +20,4 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, the repository-pinned `golangci-lint`, `openspec validate issue-20-wire-application-flows --strict`, and `openspec status --change issue-20-wire-application-flows --json`, and verify every gate passes with all tasks complete
+- [x] 4.1 Run `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, the repository-pinned `golangci-lint`, `openspec validate issue-20-wire-application-flows --strict`, and `openspec status --change issue-20-wire-application-flows --json`, and verify every gate passes with all tasks complete
