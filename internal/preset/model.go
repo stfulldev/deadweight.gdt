@@ -1,6 +1,11 @@
 package preset
 
-import "github.com/stfulldev/deadweight.gdt/internal/budget"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/stfulldev/deadweight.gdt/internal/budget"
+)
 
 // Preset is a built-in heuristic budget profile.
 type Preset struct {
@@ -19,13 +24,31 @@ type Preset struct {
 // Catalog preserves product order and provides lookup by stable ID.
 type Catalog []Preset
 
-// Find returns a preset by its stable ID.
-func (catalog Catalog) Find(id string) (Preset, bool) {
+// Find returns an independent preset value by its stable ID.
+func (catalog Catalog) Find(id string) (Preset, error) {
 	for _, item := range catalog {
 		if item.ID == id {
-			return item, true
+			return item.clone(), nil
 		}
 	}
 
-	return Preset{}, false
+	ids := make([]string, 0, len(catalog))
+	for _, item := range catalog {
+		ids = append(ids, item.ID)
+	}
+
+	return Preset{}, fmt.Errorf("unknown preset %q; available presets: %s", id, strings.Join(ids, ", "))
+}
+
+func (item Preset) clone() Preset {
+	item.Budgets = item.Budgets.Clone()
+	return item
+}
+
+func (catalog Catalog) clone() Catalog {
+	result := make(Catalog, len(catalog))
+	for index, item := range catalog {
+		result[index] = item.clone()
+	}
+	return result
 }
