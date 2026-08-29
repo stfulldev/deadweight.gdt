@@ -1,0 +1,5 @@
+exit: 2
+
+[stdout]
+[stderr]
+ERROR SB2003: invalid configuration "<PROJECT>/invalid-config.json" field "unexpected": invalid JSON value

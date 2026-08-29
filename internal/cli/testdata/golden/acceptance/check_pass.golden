@@ -1,0 +1,15 @@
+exit: 0
+
+[stdout]
+deadweight.gdt 0.1.0-test
+
+Scene:       res://simple.tscn
+Analysis:    COMPLETE
+Policy:      project/CLI overrides
+
+Metric                        Actual     Budget   Result
+--------------------------------------------------------
+Nodes                               3          3   PASS
+
+PASSED — all 1 budget within limits
+[stderr]

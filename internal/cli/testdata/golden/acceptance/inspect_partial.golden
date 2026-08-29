@@ -1,0 +1,38 @@
+exit: 0
+
+[stdout]
+deadweight.gdt 0.1.0-test
+
+Scene:     res://missing-tscn.tscn
+Project:   <PROJECT>
+Analysis:  PARTIAL
+Accuracy:  lower bound
+
+Structure
+  Nodes                              2+
+  Tree depth                         2+
+  Scene instances                    1+
+  Scene dependencies                 0+
+
+Rendering
+  Mesh instances                     0+
+  Lights                             0+
+  Shadow lights                      0+
+
+Resources
+  External resources                 1+
+
+Coverage
+  Parsed scene files                  1
+  Resolved scene instances            0
+  Unresolved scene instances          1
+
+Unresolved scene instances
+  res://missing/child.tscn           ×1    unresolved path (missing)
+
+Diagnostics
+  WARNING SB1004 res://missing-tscn.tscn:7:1 [res://missing/child.tscn]: resource path is unavailable: missing
+
+WARNING: Expanded metrics are partial. Values marked with + are known
+lower bounds because 1 scene instance could not be analyzed statically.
+[stderr]

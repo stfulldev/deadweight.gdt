@@ -1,0 +1,17 @@
+exit: 3
+
+[stdout]
+deadweight.gdt 0.1.0-test
+
+Scene:       res://missing-tscn.tscn
+Analysis:    PARTIAL
+Accuracy:    lower bound
+Policy:      project/CLI overrides
+
+Metric                        Actual     Budget   Result
+--------------------------------------------------------
+Nodes                              2+         10   PASS
+
+INCOMPLETE — 1 scene instance could not be analyzed statically
+Configured policy fail_on_partial=true rejects partial analysis.
+[stderr]
