@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+### Added
+
+- Add `--format text|json` to `inspect` and `check`, keeping text as the compatible default and preserving all existing exit-code meanings.
+- Publish deterministic, portable schema-version-one `inspect`, `check`, and fatal `error` documents with a committed Draft 2020-12 schema and schema-valid golden fixtures.
+- Retain ordered metrics, checked coverage, grouped diagnostics, effective policy metadata, comparisons, partial policy, and verdict evidence for automation without exposing canonical checkout paths.
+
 ## [0.1.1] — 2026-08-30
 
 Corrective release for real-world Godot format-3 compatibility and truthful tagged-install version provenance.

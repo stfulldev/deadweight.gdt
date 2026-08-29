@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "error",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "error": {
+    "code": "SB2002",
+    "severity": "error",
+    "message": "scene dependency cycle",
+    "details": [
+      "res://A.tscn",
+      "→ res://B.tscn",
+      "→ res://A.tscn"
+    ]
+  }
+}

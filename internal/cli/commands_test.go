@@ -433,9 +433,10 @@ func checkResult(status budget.Status) application.CheckResult {
 			ID:   "mobile",
 		},
 		Evaluation: budget.Evaluation{
-			Status:      status,
-			Reliability: inspect.Analysis.Reliability,
-			Exceeded:    exceeded,
+			Status:        status,
+			Reliability:   inspect.Analysis.Reliability,
+			FailOnPartial: status == budget.StatusIncomplete,
+			Exceeded:      exceeded,
 			Results: []budget.Result{{
 				Metric: metrics.Nodes,
 				Actual: actual,

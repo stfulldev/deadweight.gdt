@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "kind": "inspect",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "scene": {
+    "path": "res://levels/city.tscn"
+  },
+  "configuration": {
+    "present": false,
+    "selection": "absent"
+  },
+  "analysis": {
+    "status": "partial",
+    "reliability": "lower_bound",
+    "metrics": [
+      {
+        "id": "nodes",
+        "value": 2841
+      },
+      {
+        "id": "tree_depth",
+        "value": 17
+      },
+      {
+        "id": "scene_instances",
+        "value": 184
+      },
+      {
+        "id": "mesh_instances",
+        "value": 1024
+      },
+      {
+        "id": "lights",
+        "value": 43
+      },
+      {
+        "id": "shadow_lights",
+        "value": 9
+      },
+      {
+        "id": "external_resources",
+        "value": 218
+      },
+      {
+        "id": "scene_dependencies",
+        "value": 12
+      }
+    ],
+    "coverage": {
+      "parsed_scene_files": 13,
+      "resolved_scene_instances": 179,
+      "unresolved_scene_instances": 5,
+      "inherited_scenes": 0
+    },
+    "diagnostics": [
+      {
+        "code": "SB1002",
+        "severity": "warning",
+        "message": "imported PackedScene cannot be expanded statically",
+        "occurrences": 3,
+        "source": {
+          "path": "res://models/car.glb"
+        }
+      },
+      {
+        "code": "SB1002",
+        "severity": "warning",
+        "message": "imported PackedScene cannot be expanded statically",
+        "occurrences": 2,
+        "source": {
+          "path": "res://models/tree.glb"
+        }
+      }
+    ]
+  }
+}
