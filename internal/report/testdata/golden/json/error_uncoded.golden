@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "kind": "error",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "error": {
+    "severity": "error",
+    "message": "analysis <failed>"
+  }
+}
