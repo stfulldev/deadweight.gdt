@@ -3,6 +3,7 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -39,23 +40,71 @@ func (resolver *memoryResolver) ResolveResource(fromScene, raw string) project.R
 	}
 }
 
-type memorySceneLoader struct {
-	sources map[string]string
-	errors  map[string]error
-	calls   map[string]int
+type memorySceneEffects struct {
+	sources     map[string]string
+	errors      map[string]error
+	parseErrors map[string]error
+	closeErrors map[string]error
+	calls       map[string]int
+	parses      map[string]int
+	closes      map[string]int
 }
 
-func (loader *memorySceneLoader) load(path project.ResolvedPath) (*tscn.Document, error) {
-	loader.calls[path.Canonical]++
-	if err := loader.errors[path.Canonical]; err != nil {
+type memorySceneReader struct {
+	io.Reader
+	canonical string
+	effects   *memorySceneEffects
+}
+
+func (reader *memorySceneReader) Close() error {
+	reader.effects.ensureCounters()
+	reader.effects.closes[reader.canonical]++
+
+	return reader.effects.closeErrors[reader.canonical]
+}
+
+func (effects *memorySceneEffects) open(path project.ResolvedPath) (io.ReadCloser, error) {
+	effects.ensureCounters()
+	effects.calls[path.Canonical]++
+	if err := effects.errors[path.Canonical]; err != nil {
 		return nil, err
 	}
-	source, exists := loader.sources[path.Canonical]
+	source, exists := effects.sources[path.Canonical]
 	if !exists {
 		return nil, fmt.Errorf("no in-memory scene for %s", path.Canonical)
 	}
 
-	return tscn.Parse(strings.NewReader(source), path.Display)
+	return &memorySceneReader{
+		Reader:    strings.NewReader(source),
+		canonical: path.Canonical,
+		effects:   effects,
+	}, nil
+}
+
+func (effects *memorySceneEffects) parse(reader io.Reader, source string) (*tscn.Document, error) {
+	effects.ensureCounters()
+	memoryReader, ok := reader.(*memorySceneReader)
+	if !ok {
+		return nil, fmt.Errorf("unexpected in-memory reader %T", reader)
+	}
+	effects.parses[memoryReader.canonical]++
+	if err := effects.parseErrors[memoryReader.canonical]; err != nil {
+		return nil, err
+	}
+
+	return tscn.Parse(reader, source)
+}
+
+func (effects *memorySceneEffects) ensureCounters() {
+	if effects.calls == nil {
+		effects.calls = make(map[string]int)
+	}
+	if effects.parses == nil {
+		effects.parses = make(map[string]int)
+	}
+	if effects.closes == nil {
+		effects.closes = make(map[string]int)
+	}
 }
 
 func TestRecursiveAnalyzerExpandsChainFromEachDeclaringScene(t *testing.T) {
@@ -70,7 +119,7 @@ func TestRecursiveAnalyzerExpandsChainFromEachDeclaringScene(t *testing.T) {
 		resolverKey(child.Canonical, "../leaf.tscn"):     resolvedResource("../leaf.tscn", leaf),
 		resolverKey(leaf.Canonical, "texture.png"):       resolvedResource("texture.png", texture),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="nested/child.tscn" id="1_child"]
@@ -95,6 +144,11 @@ shadow_enabled = true
 		calls:  make(map[string]int),
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+	builds := make(map[*tscn.Document]int)
+	analyzer.summarize = func(document *tscn.Document) (LocalSummary, error) {
+		builds[document]++
+		return BuildLocalSummary(document)
+	}
 
 	summary, err := analyzer.Expand(root)
 	if err != nil {
@@ -125,8 +179,14 @@ shadow_enabled = true
 		t.Fatalf("resolved resources = %#v, want %#v", got, wantResources)
 	}
 	for _, path := range []project.ResolvedPath{root, child, leaf} {
-		if loader.calls[path.Canonical] != 1 {
-			t.Errorf("loader calls for %s = %d, want 1", path.Display, loader.calls[path.Canonical])
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+	if len(builds) != 3 {
+		t.Fatalf("local summary document count = %d, want 3", len(builds))
+	}
+	for document, count := range builds {
+		if document == nil || count != 1 {
+			t.Fatalf("local summary builds for %p = %d, want 1", document, count)
 		}
 	}
 	wantCalls := []resolverCall{
@@ -153,7 +213,7 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 	for index := 0; index < 100; index++ {
 		fmt.Fprintf(&mounts, "[node name=\"Child%d\" parent=\".\" instance=ExtResource(\"1_child\")]\n", index)
 	}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="child.tscn" id="1_child"]
@@ -205,9 +265,7 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 		}
 	}
 	for _, path := range []project.ResolvedPath{root, child, leaf} {
-		if loader.calls[path.Canonical] != 1 {
-			t.Fatalf("first loader calls for %s = %d", path.Display, loader.calls[path.Canonical])
-		}
+		requireMemorySceneEffects(t, loader, path, 1)
 	}
 
 	first.Dependencies[0] = "mutated"
@@ -220,9 +278,7 @@ func TestRecursiveAnalyzerAppliesRepeatedSummaryOneHundredTimesAndResetsInvocati
 		t.Fatalf("second summary changed after caller mutation: %#v", second)
 	}
 	for _, path := range []project.ResolvedPath{root, child, leaf} {
-		if loader.calls[path.Canonical] != 2 {
-			t.Fatalf("invocation did not reset loader for %s: %d", path.Display, loader.calls[path.Canonical])
-		}
+		requireMemorySceneEffects(t, loader, path, 2)
 	}
 }
 
@@ -241,7 +297,7 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 		resolverKey(right.Canonical, "shared.tscn"): resolvedResource("shared.tscn", shared),
 		resolverKey(shared.Canonical, "shared.res"): resolvedResource("shared.res", asset),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_left", "left.tscn"}, {"2_right", "right.tscn"}}),
 			left.Canonical:  sceneWithMounts("Left", []resourceMount{{"1_shared", "shared.tscn"}}),
@@ -255,6 +311,11 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 		calls:  make(map[string]int),
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+	builds := make(map[*tscn.Document]int)
+	analyzer.summarize = func(document *tscn.Document) (LocalSummary, error) {
+		builds[document]++
+		return BuildLocalSummary(document)
+	}
 
 	summary, err := analyzer.Expand(root)
 	if err != nil {
@@ -268,11 +329,19 @@ func TestRecursiveAnalyzerReusesDiamondDescendantAndUnionsEvidence(t *testing.T)
 	if !reflect.DeepEqual(summary.Dependencies, wantDependencies) {
 		t.Fatalf("dependencies = %#v, want %#v", summary.Dependencies, wantDependencies)
 	}
-	if loader.calls[shared.Canonical] != 1 {
-		t.Fatalf("shared loader calls = %d, want 1", loader.calls[shared.Canonical])
-	}
 	if occurrences(summary.ExternalResources, shared.Canonical) != 1 || occurrences(summary.ExternalResources, asset.Canonical) != 1 {
 		t.Fatalf("resource union = %#v", summary.ExternalResources)
+	}
+	for _, path := range []project.ResolvedPath{root, left, right, shared} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
+	if len(builds) != 4 {
+		t.Fatalf("local summary document count = %d, want 4", len(builds))
+	}
+	for document, count := range builds {
+		if document == nil || count != 1 {
+			t.Fatalf("local summary builds for %p = %d, want 1", document, count)
+		}
 	}
 }
 
@@ -310,7 +379,7 @@ func TestRecursiveAnalyzerClassifiesEveryUnresolvedTarget(t *testing.T) {
 		resolverKey(inherited.Canonical, "base.tscn"):   resolvedResource("base.tscn", base),
 		resolverKey(root.Canonical, "wrong-type.tscn"):  resolvedResource("wrong-type.tscn", wrongType),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="missing.tscn" id="1_missing"]
@@ -402,7 +471,7 @@ func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.
 	resolver := &memoryResolver{results: map[string]project.Resolution{
 		resolverKey(root.Canonical, "child.tscn"): resolvedResource("child.tscn", child),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="child.tscn" id="1_child"]
@@ -431,14 +500,14 @@ func TestRecursiveAnalyzerPreservesUnknownDepthWhileExpandingMetrics(t *testing.
 	}
 }
 
-func TestRecursiveAnalyzerReturnsFatalNestedParseErrorWithoutSummary(t *testing.T) {
+func TestRecursiveAnalyzerReturnsFatalNestedParseErrorWithoutResult(t *testing.T) {
 	rootDir := t.TempDir()
 	root := testScenePath(rootDir, "root.tscn")
 	child := testScenePath(rootDir, "child.tscn")
 	resolver := &memoryResolver{results: map[string]project.Resolution{
 		resolverKey(root.Canonical, "child.tscn"): resolvedResource("child.tscn", child),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_child", "child.tscn"}}),
 			child.Canonical: "this is not a scene",
@@ -448,9 +517,9 @@ func TestRecursiveAnalyzerReturnsFatalNestedParseErrorWithoutSummary(t *testing.
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
 
-	summary, err := analyzer.Expand(root)
-	if err == nil || !reflect.DeepEqual(summary, ExpandedSummary{}) {
-		t.Fatalf("Expand() = %#v, %v; want zero summary and error", summary, err)
+	result, err := analyzer.Analyze(root)
+	if err == nil || !reflect.DeepEqual(result, RecursiveResult{}) {
+		t.Fatalf("Analyze() = %#v, %v; want zero result and error", result, err)
 	}
 	if code, ok := diagnostic.CodeOf(err); !ok || code != diagnostic.CodeInvalidTSCNRoot {
 		t.Fatalf("diagnostic code = %q, %v", code, ok)
@@ -458,6 +527,9 @@ func TestRecursiveAnalyzerReturnsFatalNestedParseErrorWithoutSummary(t *testing.
 	var parseErr *tscn.ParseError
 	if !errors.As(err, &parseErr) {
 		t.Fatalf("error type = %T, want *tscn.ParseError", err)
+	}
+	for _, path := range []project.ResolvedPath{root, child} {
+		requireMemorySceneEffects(t, loader, path, 1)
 	}
 }
 
@@ -469,7 +541,7 @@ func TestRecursiveAnalyzerReportsRecursiveReferenceAsSB2002Cycle(t *testing.T) {
 		resolverKey(root.Canonical, "child.tscn"): resolvedResource("child.tscn", child),
 		resolverKey(child.Canonical, "root.tscn"): resolvedResource("root.tscn", root),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_child", "child.tscn"}}),
 			child.Canonical: sceneWithMounts("Child", []resourceMount{{"1_root", "root.tscn"}}),
@@ -505,7 +577,7 @@ func TestRecursiveAnalyzerOutputIsDeterministic(t *testing.T) {
 		resolverKey(root.Canonical, "z.gd"): resolvedResource("z.gd", z),
 		resolverKey(root.Canonical, "a.gd"): resolvedResource("a.gd", a),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="Script" path="z.gd" id="2_z"]
@@ -546,6 +618,8 @@ func TestCheckedRecursiveArithmeticBoundaries(t *testing.T) {
 		{name: "multiply overflow", operation: func() (int64, error) { return checkedMultiply(math.MaxInt64, 2) }, wantError: true},
 		{name: "maximum depth", operation: func() (int64, error) { return checkedDepth(math.MaxInt64, 1) }, want: math.MaxInt64},
 		{name: "depth overflow", operation: func() (int64, error) { return checkedDepth(math.MaxInt64, 2) }, wantError: true},
+		{name: "maximum cardinality", operation: func() (int64, error) { return checkedCardinality(uint64(math.MaxInt64)) }, want: math.MaxInt64},
+		{name: "cardinality overflow", operation: func() (int64, error) { return checkedCardinality(uint64(math.MaxInt64) + 1) }, wantError: true},
 		{name: "negative operand", operation: func() (int64, error) { return checkedAdd(-1, 1) }, wantError: true},
 	}
 	for _, test := range tests {
@@ -567,10 +641,11 @@ func TestCheckedRecursiveArithmeticBoundaries(t *testing.T) {
 
 func TestResolvedApplicationRejectsMetricCoverageAndDepthOverflow(t *testing.T) {
 	tests := []struct {
-		name    string
-		builder summaryBuilder
-		key     resolvedApplicationKey
-		child   ExpandedSummary
+		name         string
+		builder      summaryBuilder
+		key          resolvedApplicationKey
+		multiplicity int64
+		child        ExpandedSummary
 	}{
 		{
 			name:    "metric",
@@ -590,16 +665,97 @@ func TestResolvedApplicationRejectsMetricCoverageAndDepthOverflow(t *testing.T) 
 			key:     resolvedApplicationKey{known: true, depth: math.MaxInt64},
 			child:   ExpandedSummary{Metrics: metrics.Values{TreeDepth: 2}},
 		},
+		{
+			name:         "unresolved evidence",
+			builder:      summaryBuilder{resources: map[ResourceIdentity]struct{}{}, dependencies: map[string]struct{}{}},
+			key:          resolvedApplicationKey{known: true, depth: 1},
+			multiplicity: 2,
+			child: ExpandedSummary{
+				Metrics:    metrics.Values{TreeDepth: 1},
+				Unresolved: []UnresolvedInstance{{Occurrences: math.MaxInt64}},
+			},
+		},
+		{
+			name:         "inherited evidence",
+			builder:      summaryBuilder{resources: map[ResourceIdentity]struct{}{}, dependencies: map[string]struct{}{}},
+			key:          resolvedApplicationKey{known: true, depth: 1},
+			multiplicity: 2,
+			child: ExpandedSummary{
+				Metrics:          metrics.Values{TreeDepth: 1},
+				InheritedTargets: []InheritedTarget{{Occurrences: math.MaxInt64}},
+			},
+		},
+		{
+			name:         "parent finding evidence",
+			builder:      summaryBuilder{resources: map[ResourceIdentity]struct{}{}, dependencies: map[string]struct{}{}},
+			key:          resolvedApplicationKey{known: true, depth: 1},
+			multiplicity: 2,
+			child: ExpandedSummary{
+				Metrics:        metrics.Values{TreeDepth: 1},
+				ParentFindings: []SceneParentFinding{{Occurrences: math.MaxInt64}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			before := cloneExpandedSummary(test.builder.summary)
+			multiplicity := test.multiplicity
+			if multiplicity == 0 {
+				multiplicity = 1
+			}
 			err := test.builder.applyResolved(
 				project.ResolvedPath{Canonical: filepath.Join(t.TempDir(), "child.tscn")},
 				test.key,
-				1,
+				multiplicity,
 				test.child,
 			)
 			assertOverflow(t, err)
+			if !reflect.DeepEqual(test.builder.summary, before) || len(test.builder.resources) != 0 || len(test.builder.dependencies) != 0 {
+				t.Fatalf("overflow mutated builder: %#v", test.builder)
+			}
+		})
+	}
+}
+
+func TestEvidenceOverflowDoesNotMutateSummaryBuilder(t *testing.T) {
+	tests := []struct {
+		name    string
+		builder summaryBuilder
+		apply   func(*summaryBuilder) error
+	}{
+		{
+			name:    "unresolved node",
+			builder: summaryBuilder{summary: ExpandedSummary{Metrics: metrics.Values{Nodes: math.MaxInt64}}},
+			apply: func(builder *summaryBuilder) error {
+				return builder.addUnresolved(UnresolvedInstance{Occurrences: 1})
+			},
+		},
+		{
+			name:    "unresolved coverage",
+			builder: summaryBuilder{summary: ExpandedSummary{Coverage: SceneInstanceCoverage{Unresolved: math.MaxInt64}}},
+			apply: func(builder *summaryBuilder) error {
+				return builder.addUnresolved(UnresolvedInstance{Occurrences: 1})
+			},
+		},
+		{
+			name:    "inherited coverage",
+			builder: summaryBuilder{summary: ExpandedSummary{Coverage: SceneInstanceCoverage{Unresolved: math.MaxInt64}}},
+			apply: func(builder *summaryBuilder) error {
+				return builder.addInherited(
+					project.ResolvedPath{},
+					InstanceMount{},
+					&inheritedSceneError{},
+				)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			before := cloneExpandedSummary(test.builder.summary)
+			assertOverflow(t, test.apply(&test.builder))
+			if !reflect.DeepEqual(test.builder.summary, before) {
+				t.Fatalf("overflow mutated builder: %#v", test.builder.summary)
+			}
 		})
 	}
 }
@@ -628,28 +784,26 @@ func TestRecursiveAnalyzerUsesRealProjectResolverAndParsedScenes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveSceneInput() error = %v", err)
 	}
-	loader := func(path project.ResolvedPath) (*tscn.Document, error) {
-		file, openErr := os.Open(path.Canonical)
-		if openErr != nil {
-			return nil, openErr
-		}
-		defer func() {
-			if closeErr := file.Close(); closeErr != nil {
-				t.Errorf("Close(%q) error = %v", path.Canonical, closeErr)
-			}
-		}()
-
-		return tscn.Parse(file, path.Display)
+	opens := make(map[string]int)
+	parses := make(map[string]int)
+	opener := func(path project.ResolvedPath) (io.ReadCloser, error) {
+		opens[path.Canonical]++
+		return os.Open(path.Canonical)
 	}
-	analyzer, err := NewRecursiveAnalyzer(resolver, loader)
+	parser := func(reader io.Reader, source string) (*tscn.Document, error) {
+		parses[source]++
+		return tscn.Parse(reader, source)
+	}
+	analyzer, err := NewRecursiveAnalyzer(resolver, opener, parser)
 	if err != nil {
 		t.Fatalf("NewRecursiveAnalyzer() error = %v", err)
 	}
 
-	summary, err := analyzer.Expand(root)
+	result, err := analyzer.Analyze(root)
 	if err != nil {
-		t.Fatalf("Expand() error = %v", err)
+		t.Fatalf("Analyze() error = %v", err)
 	}
+	summary := result.Summary
 	canonicalChild, err := filepath.EvalSymlinks(childFile)
 	if err != nil {
 		t.Fatalf("EvalSymlinks(child) error = %v", err)
@@ -667,18 +821,26 @@ func TestRecursiveAnalyzerUsesRealProjectResolverAndParsedScenes(t *testing.T) {
 	if occurrences(summary.ExternalResources, canonicalChild) != 1 || occurrences(summary.ExternalResources, canonicalAsset) != 1 {
 		t.Fatalf("ExternalResources = %#v", summary.ExternalResources)
 	}
+	if result.ParsedSceneFiles != 2 || opens[root.Canonical] != 1 || opens[canonicalChild] != 1 ||
+		parses[root.Display] != 1 || parses["res://scenes/nested/child.tscn"] != 1 {
+		t.Fatalf("cache instrumentation = parsed %d, opens %#v, parses %#v", result.ParsedSceneFiles, opens, parses)
+	}
 }
 
 func TestRecursiveAnalyzerValidatesDependenciesAndCanonicalRoot(t *testing.T) {
-	loader := func(project.ResolvedPath) (*tscn.Document, error) { return nil, nil }
+	opener := func(project.ResolvedPath) (io.ReadCloser, error) { return nil, nil }
+	parser := func(io.Reader, string) (*tscn.Document, error) { return nil, nil }
 	resolver := &memoryResolver{}
-	if analyzer, err := NewRecursiveAnalyzer(nil, loader); err == nil || analyzer != nil {
-		t.Fatalf("NewRecursiveAnalyzer(nil, loader) = %#v, %v", analyzer, err)
+	if analyzer, err := NewRecursiveAnalyzer(nil, opener, parser); err == nil || analyzer != nil {
+		t.Fatalf("NewRecursiveAnalyzer(nil, opener, parser) = %#v, %v", analyzer, err)
 	}
-	if analyzer, err := NewRecursiveAnalyzer(resolver, nil); err == nil || analyzer != nil {
-		t.Fatalf("NewRecursiveAnalyzer(resolver, nil) = %#v, %v", analyzer, err)
+	if analyzer, err := NewRecursiveAnalyzer(resolver, nil, parser); err == nil || analyzer != nil {
+		t.Fatalf("NewRecursiveAnalyzer(resolver, nil, parser) = %#v, %v", analyzer, err)
 	}
-	analyzer := newTestRecursiveAnalyzer(t, resolver, &memorySceneLoader{sources: map[string]string{}, errors: map[string]error{}, calls: map[string]int{}})
+	if analyzer, err := NewRecursiveAnalyzer(resolver, opener, nil); err == nil || analyzer != nil {
+		t.Fatalf("NewRecursiveAnalyzer(resolver, opener, nil) = %#v, %v", analyzer, err)
+	}
+	analyzer := newTestRecursiveAnalyzer(t, resolver, &memorySceneEffects{sources: map[string]string{}, errors: map[string]error{}, calls: map[string]int{}})
 	invalidRoots := []project.ResolvedPath{
 		{},
 		{Canonical: "relative.tscn", Display: "res://relative.tscn"},
@@ -711,14 +873,35 @@ func sceneWithMounts(rootName string, mounts []resourceMount) string {
 	return source.String()
 }
 
-func newTestRecursiveAnalyzer(t *testing.T, resolver ResourceResolver, loader *memorySceneLoader) *RecursiveAnalyzer {
+func newTestRecursiveAnalyzer(t *testing.T, resolver ResourceResolver, effects *memorySceneEffects) *RecursiveAnalyzer {
 	t.Helper()
-	analyzer, err := NewRecursiveAnalyzer(resolver, loader.load)
+	analyzer, err := NewRecursiveAnalyzer(resolver, effects.open, effects.parse)
 	if err != nil {
 		t.Fatalf("NewRecursiveAnalyzer() error = %v", err)
 	}
 
 	return analyzer
+}
+
+func requireMemorySceneEffects(
+	t *testing.T,
+	effects *memorySceneEffects,
+	path project.ResolvedPath,
+	want int,
+) {
+	t.Helper()
+	if effects.calls[path.Canonical] != want ||
+		effects.parses[path.Canonical] != want ||
+		effects.closes[path.Canonical] != want {
+		t.Fatalf(
+			"effects for %s = open %d, parse %d, close %d; want %d each",
+			path.Display,
+			effects.calls[path.Canonical],
+			effects.parses[path.Canonical],
+			effects.closes[path.Canonical],
+			want,
+		)
+	}
 }
 
 func resolverKey(from, raw string) string {

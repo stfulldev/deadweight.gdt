@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"errors"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -20,7 +21,7 @@ func TestRecursiveAnalyzerBuildsRootOnlyGraph(t *testing.T) {
 	rootDir := t.TempDir()
 	root := testScenePath(rootDir, "root.tscn")
 	resolver := &memoryResolver{results: map[string]project.Resolution{}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{root.Canonical: `[gd_scene format=3]
 [node name="Root" type="Node3D"]
 `},
@@ -28,6 +29,11 @@ func TestRecursiveAnalyzerBuildsRootOnlyGraph(t *testing.T) {
 		calls:  map[string]int{},
 	}
 	analyzer := newTestRecursiveAnalyzer(t, resolver, loader)
+	builds := 0
+	analyzer.summarize = func(document *tscn.Document) (LocalSummary, error) {
+		builds++
+		return BuildLocalSummary(document)
+	}
 
 	result, err := analyzer.Analyze(root)
 	if err != nil {
@@ -44,6 +50,13 @@ func TestRecursiveAnalyzerBuildsRootOnlyGraph(t *testing.T) {
 	if result.Summary.Metrics != (metrics.Values{Nodes: 1, TreeDepth: 1}) || len(result.Summary.Dependencies) != 0 {
 		t.Fatalf("Summary = %#v", result.Summary)
 	}
+	if result.ParsedSceneFiles != 1 {
+		t.Fatalf("ParsedSceneFiles = %d, want 1", result.ParsedSceneFiles)
+	}
+	if builds != 1 {
+		t.Fatalf("local summary builds = %d, want 1", builds)
+	}
+	requireMemorySceneEffects(t, loader, root, 1)
 }
 
 func TestRecursiveAnalyzerBuildsExactChainGraph(t *testing.T) {
@@ -55,7 +68,7 @@ func TestRecursiveAnalyzerBuildsExactChainGraph(t *testing.T) {
 		resolverKey(root.Canonical, "child.tscn"): resolvedResource("child.tscn", child),
 		resolverKey(child.Canonical, "leaf.tscn"): resolvedResource("leaf.tscn", leaf),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_child", "child.tscn"}}),
 			child.Canonical: sceneWithMounts("Child", []resourceMount{{"1_leaf", "leaf.tscn"}}),
@@ -83,6 +96,12 @@ func TestRecursiveAnalyzerBuildsExactChainGraph(t *testing.T) {
 	if result.Summary.Metrics != (metrics.Values{Nodes: 3, TreeDepth: 3, SceneInstances: 2}) {
 		t.Fatalf("Metrics = %#v", result.Summary.Metrics)
 	}
+	if result.ParsedSceneFiles != 3 {
+		t.Fatalf("ParsedSceneFiles = %d, want 3", result.ParsedSceneFiles)
+	}
+	for _, path := range []project.ResolvedPath{root, child, leaf} {
+		requireMemorySceneEffects(t, loader, path, 1)
+	}
 }
 
 func TestRecursiveAnalyzerCompactsOneHundredRepeatedGraphEdges(t *testing.T) {
@@ -98,7 +117,7 @@ func TestRecursiveAnalyzerCompactsOneHundredRepeatedGraphEdges(t *testing.T) {
 		mounts.WriteString(testDecimal(index))
 		mounts.WriteString("\" parent=\".\" instance=ExtResource(\"1_child\")]\n")
 	}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="child.tscn" id="1_child"]
@@ -132,8 +151,11 @@ func TestRecursiveAnalyzerCompactsOneHundredRepeatedGraphEdges(t *testing.T) {
 	if result.Summary.Metrics != (metrics.Values{Nodes: 101, TreeDepth: 2, SceneInstances: 100, MeshInstances: 100}) {
 		t.Fatalf("Metrics = %#v", result.Summary.Metrics)
 	}
-	if loader.calls[root.Canonical] != 1 || loader.calls[child.Canonical] != 1 || len(builds) != 2 || len(resolver.calls) != 1 {
+	if result.ParsedSceneFiles != 2 || len(builds) != 2 || len(resolver.calls) != 1 {
 		t.Fatalf("loader/build/resolver counts = %#v/%#v/%#v", loader.calls, builds, resolver.calls)
+	}
+	for _, path := range []project.ResolvedPath{root, child} {
+		requireMemorySceneEffects(t, loader, path, 1)
 	}
 }
 
@@ -149,7 +171,7 @@ func TestRecursiveAnalyzerBuildsDiamondOnce(t *testing.T) {
 		resolverKey(left.Canonical, "shared.tscn"):  resolvedResource("shared.tscn", shared),
 		resolverKey(right.Canonical, "shared.tscn"): resolvedResource("shared.tscn", shared),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:   sceneWithMounts("Root", []resourceMount{{"1_left", "left.tscn"}, {"2_right", "right.tscn"}}),
 			left.Canonical:   sceneWithMounts("Left", []resourceMount{{"1_shared", "shared.tscn"}}),
@@ -168,11 +190,14 @@ func TestRecursiveAnalyzerBuildsDiamondOnce(t *testing.T) {
 	if result.Graph.SceneDependencies != 3 || len(result.Graph.Nodes) != 4 || len(result.Graph.Edges) != 4 {
 		t.Fatalf("Graph = %#v", result.Graph)
 	}
-	if loader.calls[shared.Canonical] != 1 {
-		t.Fatalf("shared loader calls = %d", loader.calls[shared.Canonical])
-	}
 	if result.Summary.Metrics.Nodes != 5 || result.Summary.Metrics.SceneInstances != 4 {
 		t.Fatalf("Metrics = %#v", result.Summary.Metrics)
+	}
+	if result.ParsedSceneFiles != 4 {
+		t.Fatalf("ParsedSceneFiles = %d, want 4", result.ParsedSceneFiles)
+	}
+	for _, path := range []project.ResolvedPath{root, left, right, shared} {
+		requireMemorySceneEffects(t, loader, path, 1)
 	}
 }
 
@@ -191,7 +216,7 @@ func TestRecursiveAnalyzerKeepsUnresolvedTargetsOutOfGraphNodes(t *testing.T) {
 		resolverKey(root.Canonical, "logic.gd"):         resolvedResource("logic.gd", unsupported),
 		resolverKey(root.Canonical, "unavailable.tscn"): resolvedResource("unavailable.tscn", unavailable),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{root.Canonical: `[gd_scene format=3]
 [ext_resource type="PackedScene" path="missing.tscn" id="1_missing"]
 [ext_resource type="PackedScene" path="model.glb" id="2_imported"]
@@ -240,8 +265,15 @@ func TestRecursiveAnalyzerKeepsUnresolvedTargetsOutOfGraphNodes(t *testing.T) {
 	if result.Summary.Metrics.Nodes != 8 || result.Summary.Coverage.Unresolved != 7 {
 		t.Fatalf("Summary = %#v", result.Summary)
 	}
+	if result.ParsedSceneFiles != 1 {
+		t.Fatalf("ParsedSceneFiles = %d, want only root", result.ParsedSceneFiles)
+	}
 	if loader.calls[unavailable.Canonical] != 1 {
 		t.Fatalf("unavailable loader calls = %d", loader.calls[unavailable.Canonical])
+	}
+	requireMemorySceneEffects(t, loader, root, 1)
+	if loader.parses[unavailable.Canonical] != 0 || loader.closes[unavailable.Canonical] != 0 {
+		t.Fatalf("unavailable effects = parses %d, closes %d", loader.parses[unavailable.Canonical], loader.closes[unavailable.Canonical])
 	}
 }
 
@@ -256,7 +288,7 @@ func TestRecursiveAnalyzerRetainsUnresolvedInheritanceEdge(t *testing.T) {
 			Path:   project.ResolvedPath{Original: "missing-base.tscn"},
 		},
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: sceneWithMounts("Root", []resourceMount{{"1_inherited", "inherited.tscn"}}),
 			inherited.Canonical: `[gd_scene format=3]
@@ -280,6 +312,9 @@ func TestRecursiveAnalyzerRetainsUnresolvedInheritanceEdge(t *testing.T) {
 	if edge.Resolved || edge.Classification != TargetUnresolvedPath || edge.ResolutionReason != project.ResolutionMissing || edge.RawTarget != "missing-base.tscn" {
 		t.Fatalf("inheritance edge = %#v", edge)
 	}
+	if result.ParsedSceneFiles != 2 {
+		t.Fatalf("ParsedSceneFiles = %d, want 2", result.ParsedSceneFiles)
+	}
 }
 
 func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(t *testing.T) {
@@ -295,7 +330,7 @@ func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(
 		resolverKey(base.Canonical, "leaf.tscn"):      resolvedResource("leaf.tscn", leaf),
 		resolverKey(leaf.Canonical, "leaf.res"):       resolvedResource("leaf.res", asset),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: sceneWithMounts("Root", []resourceMount{{"1_inherited", "inherited.tscn"}}),
 			inherited.Canonical: `[gd_scene format=3]
@@ -333,15 +368,16 @@ func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(
 	if result.Summary.Metrics != (metrics.Values{Nodes: 2, TreeDepth: 2, SceneInstances: 1}) || result.Summary.Coverage.Unresolved != 1 {
 		t.Fatalf("inherited metrics were applied exactly: %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
 	}
+	if result.ParsedSceneFiles != 4 {
+		t.Fatalf("ParsedSceneFiles = %d, want 4", result.ParsedSceneFiles)
+	}
 	for _, canonical := range []string{inherited.Canonical, base.Canonical, leaf.Canonical, asset.Canonical} {
 		if occurrences(result.Summary.ExternalResources, canonical) != 1 {
 			t.Errorf("resource %q occurrences = %d", canonical, occurrences(result.Summary.ExternalResources, canonical))
 		}
 	}
 	for _, path := range []project.ResolvedPath{root, inherited, base, leaf} {
-		if loader.calls[path.Canonical] != 1 {
-			t.Errorf("loader calls for %s = %d", path.Display, loader.calls[path.Canonical])
-		}
+		requireMemorySceneEffects(t, loader, path, 1)
 	}
 	if len(resolver.calls) != 4 {
 		t.Fatalf("resolver calls = %#v", resolver.calls)
@@ -354,7 +390,7 @@ func TestRecursiveAnalyzerReportsSelfCycle(t *testing.T) {
 	resolver := &memoryResolver{results: map[string]project.Resolution{
 		resolverKey(root.Canonical, "root.tscn"): resolvedResource("root.tscn", root),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{root.Canonical: sceneWithMounts("Root", []resourceMount{{"1_root", "root.tscn"}})},
 		errors:  map[string]error{},
 		calls:   map[string]int{},
@@ -382,7 +418,7 @@ func TestRecursiveAnalyzerReportsMixedInstanceInheritanceCycle(t *testing.T) {
 		resolverKey(inherited.Canonical, "base.tscn"): resolvedResource("base.tscn", base),
 		resolverKey(base.Canonical, "root.tscn"):      resolvedResource("root.tscn", root),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: sceneWithMounts("Root", []resourceMount{{"1_inherited", "inherited.tscn"}}),
 			inherited.Canonical: `[gd_scene format=3]
@@ -416,7 +452,7 @@ func TestRecursiveAnalyzerSelectsCycleByDeterministicTargetOrder(t *testing.T) {
 		resolverKey(a.Canonical, "a.tscn"):    resolvedResource("a.tscn", a),
 		resolverKey(z.Canonical, "z.tscn"):    resolvedResource("z.tscn", z),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical: sceneWithMounts("Root", []resourceMount{{"1_z", "z.tscn"}, {"2_a", "a.tscn"}}),
 			a.Canonical:    sceneWithMounts("A", []resourceMount{{"1_a", "a.tscn"}}),
@@ -453,10 +489,21 @@ func TestGraphBuilderRejectsEdgeAndDependencyOverflow(t *testing.T) {
 	}
 	edge.Occurrences = 1
 	assertOverflow(t, builder.addEdge(edge))
+	if len(builder.edges) != 1 {
+		t.Fatalf("edge overflow mutated graph builder: %#v", builder.edges)
+	}
+	for _, cached := range builder.edges {
+		if cached.Occurrences != math.MaxInt64 {
+			t.Fatalf("edge overflow changed occurrences to %d", cached.Occurrences)
+		}
+	}
 
 	builder = newGraphBuilder(root)
 	builder.dependencyCount = math.MaxInt64
 	assertOverflow(t, builder.addNode(testScenePath(filepath.Dir(root.Canonical), "child.tscn")))
+	if len(builder.nodes) != 0 || builder.dependencyCount != math.MaxInt64 {
+		t.Fatalf("dependency overflow mutated graph builder: %#v", builder)
+	}
 }
 
 func TestRecursiveAnalyzerOwnsDeterministicGraphResults(t *testing.T) {
@@ -466,7 +513,7 @@ func TestRecursiveAnalyzerOwnsDeterministicGraphResults(t *testing.T) {
 	resolver := &memoryResolver{results: map[string]project.Resolution{
 		resolverKey(root.Canonical, "child.tscn"): resolvedResource("child.tscn", child),
 	}}
-	loader := &memorySceneLoader{
+	loader := &memorySceneEffects{
 		sources: map[string]string{
 			root.Canonical:  sceneWithMounts("Root", []resourceMount{{"1_child", "child.tscn"}}),
 			child.Canonical: "[gd_scene format=3]\n[node name=\"Child\" type=\"Node3D\"]\n",
@@ -521,20 +568,10 @@ func TestRecursiveAnalyzerGraphUsesRealResolverForRelativeInheritance(t *testing
 	if err != nil {
 		t.Fatalf("ResolveSceneInput() error = %v", err)
 	}
-	loader := func(path project.ResolvedPath) (*tscn.Document, error) {
-		file, openErr := os.Open(path.Canonical)
-		if openErr != nil {
-			return nil, openErr
-		}
-		defer func() {
-			if closeErr := file.Close(); closeErr != nil {
-				t.Errorf("Close(%q) error = %v", path.Canonical, closeErr)
-			}
-		}()
-
-		return tscn.Parse(file, path.Display)
+	opener := func(path project.ResolvedPath) (io.ReadCloser, error) {
+		return os.Open(path.Canonical)
 	}
-	analyzer, err := NewRecursiveAnalyzer(resolver, loader)
+	analyzer, err := NewRecursiveAnalyzer(resolver, opener, tscn.Parse)
 	if err != nil {
 		t.Fatalf("NewRecursiveAnalyzer() error = %v", err)
 	}
@@ -554,6 +591,9 @@ func TestRecursiveAnalyzerGraphUsesRealResolverForRelativeInheritance(t *testing
 	if result.Graph.SceneDependencies != 2 ||
 		findGraphEdge(t, result.Graph, canonicalInherited, EdgeInheritance).ToCanonical != canonicalBase {
 		t.Fatalf("Graph = %#v", result.Graph)
+	}
+	if result.ParsedSceneFiles != 3 {
+		t.Fatalf("ParsedSceneFiles = %d, want 3", result.ParsedSceneFiles)
 	}
 	if result.Summary.Metrics.MeshInstances != 0 || result.Summary.Metrics.SceneDependencies != 0 {
 		t.Fatalf("deferred/final metrics leaked = %#v", result.Summary.Metrics)
