@@ -1,0 +1,35 @@
+deadweight.gdt 0.1.0
+
+Scene:     res://levels/city.tscn
+Project:   <PROJECT>
+Analysis:  PARTIAL
+Accuracy:  approximate
+
+Structure
+  Nodes                          2,841~
+  Tree depth                        17~
+  Scene instances                  184~
+  Scene dependencies                12~
+
+Rendering
+  Mesh instances                 1,024~
+  Lights                            43~
+  Shadow lights                      9~
+
+Resources
+  External resources               218~
+
+Coverage
+  Parsed scene files                 13
+  Resolved scene instances          184
+  Unresolved scene instances          0
+  Inherited scenes                    1
+
+Inherited scene instances
+  res://actors/zombie.tscn           ×1    inherited scene
+
+Diagnostics
+  WARNING SB1003 res://actors/zombie.tscn: inherited-scene overrides make expanded metrics approximate
+
+WARNING: Expanded metrics are approximate. Values marked with ~ may vary
+because inherited-scene overrides can change values in either direction.

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"errors"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -54,9 +55,10 @@ func TestInspectForwardsGlobalFlagsToInjectedApplication(t *testing.T) {
 		t.Fatalf("request = %#v, want %#v", got, want)
 	}
 	for _, fragment := range []string{
-		"Scene: res://root.tscn",
-		"Analysis: COMPLETE (exact)",
-		"Nodes                             3",
+		"Scene:     res://root.tscn",
+		"Analysis:  COMPLETE",
+		"Accuracy:  exact",
+		"Nodes                               3",
 	} {
 		if !strings.Contains(stdout.String(), fragment) {
 			t.Errorf("stdout does not contain %q:\n%s", fragment, stdout.String())
@@ -123,7 +125,7 @@ func TestCheckForwardsFlagsAndMapsNonFatalOutcomes(t *testing.T) {
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("request = %#v, want %#v", got, want)
 			}
-			if !strings.Contains(stdout.String(), "Result: "+string(test.status)) {
+			if !strings.Contains(stdout.String(), verdictHeading(test.status)) {
 				t.Fatalf("stdout = %q", stdout.String())
 			}
 		})
@@ -286,6 +288,65 @@ func TestApplicationFailureRemainsFatal(t *testing.T) {
 	}
 }
 
+func TestColorPolicyUsesTerminalAndBothSuppressionInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		terminal   bool
+		noColor    bool
+		noColorEnv bool
+		wantANSI   bool
+	}{
+		{name: "terminal color", terminal: true, wantANSI: true},
+		{name: "explicit no color", terminal: true, noColor: true},
+		{name: "environment no color", terminal: true, noColorEnv: true},
+		{name: "non terminal", terminal: false},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := &fakeApplication{inspect: func(application.InspectRequest) (application.InspectResult, error) {
+				return inspectResult(3), nil
+			}}
+			args := []string{"inspect", "res://root.tscn"}
+			if test.noColor {
+				args = append([]string{"--no-color"}, args...)
+			}
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := cli.ExecuteWithApplicationAndRuntime(
+				args,
+				&stdout,
+				&stderr,
+				cli.BuildInfo{Version: "test"},
+				service,
+				cli.PresentationRuntime{
+					LookupEnv: func(name string) (string, bool) {
+						if name == "NO_COLOR" && test.noColorEnv {
+							return "", true
+						}
+
+						return "", false
+					},
+					IsTerminal: func(io.Writer) bool { return test.terminal },
+				},
+			)
+			if exitCode != 0 || stderr.Len() != 0 {
+				t.Fatalf("exit/stderr = %d / %q", exitCode, stderr.String())
+			}
+			if got := strings.Contains(stdout.String(), "\x1b["); got != test.wantANSI {
+				t.Fatalf("ANSI present = %t, want %t:\n%q", got, test.wantANSI, stdout.String())
+			}
+			if !strings.Contains(stdout.String(), "COMPLETE") {
+				t.Fatalf("textual status missing: %q", stdout.String())
+			}
+		})
+	}
+}
+
 type fakeApplication struct {
 	inspect     func(application.InspectRequest) (application.InspectResult, error)
 	check       func(application.CheckRequest) (application.CheckResult, error)
@@ -349,21 +410,52 @@ func inspectResult(nodes int64) application.InspectResult {
 }
 
 func checkResult(status budget.Status) application.CheckResult {
+	inspect := inspectResult(3)
+	actual := int64(3)
+	limit := int64(2)
+	passed := false
+	exceeded := 1
+	if status == budget.StatusPassed {
+		actual = 1
+		passed = true
+		exceeded = 0
+	}
+	if status == budget.StatusIncomplete {
+		inspect.Analysis.Status = analysis.AnalysisPartial
+		inspect.Analysis.Reliability = analysis.ReliabilityLowerBound
+		inspect.Analysis.Coverage.UnresolvedSceneInstances = 1
+	}
+
 	return application.CheckResult{
-		Inspect: inspectResult(3),
+		Inspect: inspect,
 		Policy: policy.Effective{
 			Kind: policy.KindPreset,
 			ID:   "mobile",
 		},
 		Evaluation: budget.Evaluation{
 			Status:      status,
-			Reliability: analysis.ReliabilityExact,
-			Exceeded:    1,
+			Reliability: inspect.Analysis.Reliability,
+			Exceeded:    exceeded,
 			Results: []budget.Result{{
 				Metric: metrics.Nodes,
-				Actual: 3,
-				Limit:  2,
+				Actual: actual,
+				Limit:  limit,
+				Delta:  actual - limit,
+				Passed: passed,
 			}},
 		},
+	}
+}
+
+func verdictHeading(status budget.Status) string {
+	switch status {
+	case budget.StatusPassed:
+		return "PASSED —"
+	case budget.StatusFailed:
+		return "FAILED —"
+	case budget.StatusIncomplete:
+		return "INCOMPLETE —"
+	default:
+		return string(status)
 	}
 }

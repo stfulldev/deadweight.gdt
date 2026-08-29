@@ -1,0 +1,27 @@
+deadweight.gdt 0.1.0
+
+Scene:       res://levels/city.tscn
+Analysis:    PARTIAL
+Accuracy:    lower bound
+Preset:      steam-deck
+Status:      heuristic (experimental)
+Renderer:    Forward+
+Target FPS:  60
+Quality:     Balanced
+
+Metric                        Actual     Budget   Result
+--------------------------------------------------------
+Nodes                          2,841+      3,000   PASS
+Tree depth                        17+         20   PASS
+Scene instances                  184+        250   PASS
+Mesh instances                 1,024+      1,000   FAIL  +24
+Lights                            43+         32   FAIL  +11
+Shadow lights                      9+          8   FAIL  +1
+External resources               218+        300   PASS
+Scene dependencies                12+         80   PASS
+
+INCOMPLETE — 5 scene instances could not be analyzed statically
+Configured policy fail_on_partial=true rejects partial analysis.
+
+Built-in presets are heuristic guardrails, not performance guarantees.
+Profile the game on target hardware.

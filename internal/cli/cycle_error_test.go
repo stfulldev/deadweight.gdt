@@ -27,7 +27,7 @@ func TestExecuteMapsAnalysisCycleToFatalExitCodeAndCompleteChain(t *testing.T) {
 	if exitCode != 2 {
 		t.Fatalf("exit code = %d, want 2", exitCode)
 	}
-	want := "ERROR SB2002: scene dependency cycle\n\nres://a.tscn\n→ res://b.tscn\n→ res://a.tscn\n"
+	want := "ERROR SB2002: scene dependency cycle\n\n  res://a.tscn\n  → res://b.tscn\n  → res://a.tscn\n"
 	if stderr.String() != want {
 		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
 	}
