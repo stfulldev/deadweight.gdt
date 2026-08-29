@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
 	"github.com/stfulldev/deadweight.gdt/internal/tscn"
 )
 
@@ -166,8 +167,18 @@ func TestParseRejectsMalformedOrUnsupportedScenes(t *testing.T) {
 			if !errors.As(err, &parseError) {
 				t.Fatalf("error type = %T, want *tscn.ParseError", err)
 			}
-			if parseError.Code != "SB2001" || parseError.Position.Line < 1 || parseError.Position.Column < 1 {
+			if parseError.Code != diagnostic.CodeInvalidTSCNRoot || parseError.Position.Line < 1 || parseError.Position.Column < 1 {
 				t.Fatalf("ParseError = %#v", parseError)
+			}
+			if code, ok := diagnostic.CodeOf(err); !ok || code != diagnostic.CodeInvalidTSCNRoot {
+				t.Fatalf("diagnostic.CodeOf() = %q, %v", code, ok)
+			}
+			message := diagnostic.MessageOf(err)
+			if !strings.Contains(message, "bad.tscn:") || !strings.Contains(message, test.want) {
+				t.Fatalf("diagnostic.MessageOf() = %q", message)
+			}
+			if strings.Contains(message, string(diagnostic.CodeInvalidTSCNRoot)) {
+				t.Fatalf("diagnostic.MessageOf() duplicates code: %q", message)
 			}
 		})
 	}
