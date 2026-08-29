@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="lamp.tscn" id="1_lamp"]
+
+[node name="City" type="Node3D"]
+
+[node name="LampA" parent="." instance=ExtResource("1_lamp")]
+
+[node name="LampB" parent="." instance=ExtResource("1_lamp")]
+
+[node name="LampC" parent="." instance=ExtResource("1_lamp")]

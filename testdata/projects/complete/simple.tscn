@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="Root" type="Node3D"]
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true

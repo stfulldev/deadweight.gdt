@@ -1,0 +1,39 @@
+exit: 0
+
+[stdout]
+deadweight.gdt 0.1.0-test
+
+Scene:     res://zombie.tscn
+Project:   <PROJECT>
+Analysis:  PARTIAL
+Accuracy:  approximate
+
+Structure
+  Nodes                              3~
+  Tree depth                         3~
+  Scene instances                    0~
+  Scene dependencies                 1~
+
+Rendering
+  Mesh instances                     1~
+  Lights                             0~
+  Shadow lights                      0~
+
+Resources
+  External resources                 1~
+
+Coverage
+  Parsed scene files                  2
+  Resolved scene instances            0
+  Unresolved scene instances          0
+  Inherited scenes                    1
+
+Inherited scene instances
+  res://enemy.tscn                   ×1    inherited scene
+
+Diagnostics
+  WARNING SB1003 res://zombie.tscn:5:1 [res://enemy.tscn]: inherited scene detected; override merge is unsupported
+
+WARNING: Expanded metrics are approximate. Values marked with ~ may vary
+because inherited-scene overrides can change values in either direction.
+[stderr]

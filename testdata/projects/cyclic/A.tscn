@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="B.tscn" id="1_b"]
+
+[node name="A" type="Node3D"]
+
+[node name="B" parent="." instance=ExtResource("1_b")]

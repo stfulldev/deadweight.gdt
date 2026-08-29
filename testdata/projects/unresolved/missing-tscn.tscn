@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://missing/child.tscn" id="1_missing"]
+
+[node name="Root" type="Node3D"]
+
+[node name="Missing" parent="." instance=ExtResource("1_missing")]

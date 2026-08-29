@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="Lamp" type="OmniLight3D"]
+shadow_enabled = true
+
+[node name="Mesh" type="MeshInstance3D" parent="."]

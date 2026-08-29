@@ -1,0 +1,5 @@
+exit: 2
+
+[stdout]
+[stderr]
+ERROR: discover project: no regular project.godot found from "<PROJECT>"; run from inside a Godot project or pass --project

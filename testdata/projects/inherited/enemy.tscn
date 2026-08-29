@@ -1,0 +1,5 @@
+[gd_scene format=3]
+
+[node name="Enemy" type="Node3D"]
+
+[node name="Body" type="Node3D" parent="."]

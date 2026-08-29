@@ -1,0 +1,10 @@
+exit: 2
+
+[stdout]
+[stderr]
+ERROR SB2002: scene dependency cycle
+
+  res://A.tscn
+  → res://B.tscn
+  → res://C.tscn
+  → res://A.tscn
