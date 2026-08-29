@@ -3,10 +3,10 @@ package analysis
 import (
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 
-	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
 	"github.com/stfulldev/deadweight.gdt/internal/tscn"
 )
@@ -17,8 +17,11 @@ type ResourceResolver interface {
 	ResolveResource(fromScene, raw string) project.Resolution
 }
 
-// SceneLoader loads and parses one fully resolved canonical scene identity.
-type SceneLoader func(path project.ResolvedPath) (*tscn.Document, error)
+// SceneOpener opens one fully resolved canonical scene identity.
+type SceneOpener func(path project.ResolvedPath) (io.ReadCloser, error)
+
+// SceneParser parses one opened scene using its stable display identity.
+type SceneParser func(reader io.Reader, source string) (*tscn.Document, error)
 
 type localSummaryBuilder func(document *tscn.Document) (LocalSummary, error)
 
@@ -26,22 +29,31 @@ type localSummaryBuilder func(document *tscn.Document) (LocalSummary, error)
 // parsing effects. Memoization state is allocated separately by every call.
 type RecursiveAnalyzer struct {
 	resolver  ResourceResolver
-	loader    SceneLoader
+	opener    SceneOpener
+	parser    SceneParser
 	summarize localSummaryBuilder
 }
 
 // NewRecursiveAnalyzer validates and constructs a recursive scene analyzer.
-func NewRecursiveAnalyzer(resolver ResourceResolver, loader SceneLoader) (*RecursiveAnalyzer, error) {
+func NewRecursiveAnalyzer(
+	resolver ResourceResolver,
+	opener SceneOpener,
+	parser SceneParser,
+) (*RecursiveAnalyzer, error) {
 	if resolver == nil {
 		return nil, errors.New("recursive analyzer requires a resource resolver")
 	}
-	if loader == nil {
-		return nil, errors.New("recursive analyzer requires a scene loader")
+	if opener == nil {
+		return nil, errors.New("recursive analyzer requires a scene opener")
+	}
+	if parser == nil {
+		return nil, errors.New("recursive analyzer requires a scene parser")
 	}
 
 	return &RecursiveAnalyzer{
 		resolver:  resolver,
-		loader:    loader,
+		opener:    opener,
+		parser:    parser,
 		summarize: BuildLocalSummary,
 	}, nil
 }
@@ -49,7 +61,7 @@ func NewRecursiveAnalyzer(resolver ResourceResolver, loader SceneLoader) (*Recur
 // Analyze returns the deterministic recursive contribution and dependency
 // graph for one canonical root scene. Fatal failures return a zero result.
 func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (RecursiveResult, error) {
-	if analyzer == nil || analyzer.resolver == nil || analyzer.loader == nil || analyzer.summarize == nil {
+	if analyzer == nil || analyzer.resolver == nil || analyzer.opener == nil || analyzer.parser == nil || analyzer.summarize == nil {
 		return RecursiveResult{}, errors.New("recursive analyzer is not initialized")
 	}
 	if err := validateCanonicalRoot(root); err != nil {
@@ -57,13 +69,9 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	}
 
 	state := invocationState{
-		analyzer:            analyzer,
-		documents:           make(map[string]*tscn.Document),
-		documentErrors:      make(map[string]error),
-		localSummaries:      make(map[string]LocalSummary),
-		resourceResolutions: make(map[string]map[string]resourceResolution),
-		summaries:           make(map[string]ExpandedSummary),
-		inProgress:          make(map[string]project.ResolvedPath),
+		analyzer:   analyzer,
+		cache:      newInvocationCache(),
+		inProgress: make(map[string]project.ResolvedPath),
 	}
 
 	graph, graphResources, err := state.discoverGraph(root)
@@ -76,7 +84,15 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	}
 	summary.Dependencies = graphDependencyPaths(graph)
 	summary.ExternalResources = mergeResourceIdentities(summary.ExternalResources, graphResources)
-	result := RecursiveResult{Summary: summary, Graph: graph}
+	parsedSceneFiles, err := state.cache.parsedSceneFiles()
+	if err != nil {
+		return RecursiveResult{}, err
+	}
+	result := RecursiveResult{
+		Summary:          summary,
+		Graph:            graph,
+		ParsedSceneFiles: parsedSceneFiles,
+	}
 
 	return cloneRecursiveResult(result), nil
 }
@@ -108,16 +124,12 @@ func validateCanonicalRoot(root project.ResolvedPath) error {
 var _ ResourceResolver = project.Resolver{}
 
 type invocationState struct {
-	analyzer            *RecursiveAnalyzer
-	documents           map[string]*tscn.Document
-	documentErrors      map[string]error
-	localSummaries      map[string]LocalSummary
-	resourceResolutions map[string]map[string]resourceResolution
-	summaries           map[string]ExpandedSummary
-	inProgress          map[string]project.ResolvedPath
-	graphStates         map[string]graphVisitState
-	graphStack          []project.ResolvedPath
-	graphStackIndices   map[string]int
+	analyzer          *RecursiveAnalyzer
+	cache             *invocationCache
+	inProgress        map[string]project.ResolvedPath
+	graphStates       map[string]graphVisitState
+	graphStack        []project.ResolvedPath
+	graphStackIndices map[string]int
 }
 
 type sceneLoadError struct {
@@ -178,8 +190,8 @@ type summaryBuilder struct {
 }
 
 func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSummary, error) {
-	if cached, exists := state.summaries[path.Canonical]; exists {
-		return cloneExpandedSummary(cached), nil
+	if cached, exists := state.cache.expandedSummary(path.Canonical); exists {
+		return cached, nil
 	}
 	if active, exists := state.inProgress[path.Canonical]; exists {
 		return ExpandedSummary{}, fmt.Errorf(
@@ -275,41 +287,27 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 	}
 
 	result := builder.finish()
-	state.summaries[path.Canonical] = cloneExpandedSummary(result)
+	state.cache.storeExpandedSummary(path.Canonical, result)
 
 	return cloneExpandedSummary(result), nil
 }
 
 func (state *invocationState) loadLocalSummary(path project.ResolvedPath) (LocalSummary, error) {
-	if local, exists := state.localSummaries[path.Canonical]; exists {
-		return cloneLocalSummary(local), nil
-	}
-	if loadErr, exists := state.documentErrors[path.Canonical]; exists {
-		return LocalSummary{}, loadErr
+	if local, localErr, exists := state.cache.localSummary(path.Canonical); exists {
+		return local, localErr
 	}
 
-	document := state.documents[path.Canonical]
-	if document == nil {
-		loaded, err := state.analyzer.loader(path)
-		if err != nil {
-			if code, coded := diagnostic.CodeOf(err); coded && code == diagnostic.CodeInvalidTSCNRoot {
-				state.documentErrors[path.Canonical] = err
-				return LocalSummary{}, err
-			}
-
-			loadErr := &sceneLoadError{path: path, cause: err}
-			state.documentErrors[path.Canonical] = loadErr
-			return LocalSummary{}, loadErr
-		}
-		document = loaded
-		state.documents[path.Canonical] = loaded
+	document, err := state.cache.loadDocument(path, state.analyzer.opener, state.analyzer.parser)
+	if err != nil {
+		return LocalSummary{}, err
 	}
 
 	local, err := state.analyzer.summarize(document)
 	if err != nil {
+		state.cache.storeLocalSummaryError(path.Canonical, err)
 		return LocalSummary{}, err
 	}
-	state.localSummaries[path.Canonical] = cloneLocalSummary(local)
+	state.cache.storeLocalSummary(path.Canonical, local)
 
 	return cloneLocalSummary(local), nil
 }
@@ -341,7 +339,7 @@ func (state *invocationState) resolveSceneResources(
 	path project.ResolvedPath,
 	resources []ExternalResource,
 ) map[string]resourceResolution {
-	if cached, exists := state.resourceResolutions[path.Canonical]; exists {
+	if cached, exists := state.cache.resources(path.Canonical); exists {
 		return cached
 	}
 
@@ -351,9 +349,9 @@ func (state *invocationState) resolveSceneResources(
 		entry := resourceResolution{resource: resource, resolution: resolution}
 		resolved[resource.ID] = entry
 	}
-	state.resourceResolutions[path.Canonical] = resolved
+	state.cache.storeResources(path.Canonical, resolved)
 
-	return resolved
+	return cloneResourceResolutions(resolved)
 }
 
 func resourceIdentities(
@@ -528,22 +526,26 @@ func sortedApplicationKeys(applications map[resolvedApplicationKey]*resolvedAppl
 }
 
 func (builder *summaryBuilder) addUnresolved(evidence UnresolvedInstance) error {
-	var err error
-	builder.summary.Metrics.Nodes, err = checkedAdd(builder.summary.Metrics.Nodes, evidence.Occurrences)
+	nodes, err := checkedAdd(builder.summary.Metrics.Nodes, evidence.Occurrences)
 	if err != nil {
 		return err
 	}
-	builder.summary.Coverage.Unresolved, err = checkedAdd(
+	unresolved, err := checkedAdd(
 		builder.summary.Coverage.Unresolved,
 		evidence.Occurrences,
 	)
 	if err != nil {
 		return err
 	}
+
+	next := cloneExpandedSummary(builder.summary)
+	next.Metrics.Nodes = nodes
+	next.Coverage.Unresolved = unresolved
 	if !evidence.MountDepth.Known {
-		builder.summary.DepthPartial = true
+		next.DepthPartial = true
 	}
-	builder.summary.Unresolved = append(builder.summary.Unresolved, evidence)
+	next.Unresolved = append(next.Unresolved, evidence)
+	builder.summary = next
 
 	return nil
 }
@@ -553,17 +555,13 @@ func (builder *summaryBuilder) addInherited(
 	mount InstanceMount,
 	inherited *inheritedSceneError,
 ) error {
-	var err error
-	builder.summary.Metrics.Nodes, err = checkedAdd(builder.summary.Metrics.Nodes, 1)
+	nodes, err := checkedAdd(builder.summary.Metrics.Nodes, 1)
 	if err != nil {
 		return err
 	}
-	builder.summary.Coverage.Unresolved, err = checkedAdd(builder.summary.Coverage.Unresolved, 1)
+	unresolved, err := checkedAdd(builder.summary.Coverage.Unresolved, 1)
 	if err != nil {
 		return err
-	}
-	if !mount.Depth.Known {
-		builder.summary.DepthPartial = true
 	}
 
 	evidence := InheritedTarget{
@@ -588,7 +586,15 @@ func (builder *summaryBuilder) addInherited(
 		evidence.BaseCanonical = inherited.base.resolution.Path.Canonical
 		evidence.BaseDisplay = inherited.base.resolution.Path.Display
 	}
-	builder.summary.InheritedTargets = append(builder.summary.InheritedTargets, evidence)
+
+	next := cloneExpandedSummary(builder.summary)
+	next.Metrics.Nodes = nodes
+	next.Coverage.Unresolved = unresolved
+	if !mount.Depth.Known {
+		next.DepthPartial = true
+	}
+	next.InheritedTargets = append(next.InheritedTargets, evidence)
+	builder.summary = next
 
 	return nil
 }
@@ -599,15 +605,16 @@ func (builder *summaryBuilder) applyResolved(
 	multiplicity int64,
 	child ExpandedSummary,
 ) error {
+	next := cloneExpandedSummary(builder.summary)
 	fields := []struct {
 		target *int64
 		value  int64
 	}{
-		{target: &builder.summary.Metrics.Nodes, value: child.Metrics.Nodes},
-		{target: &builder.summary.Metrics.SceneInstances, value: child.Metrics.SceneInstances},
-		{target: &builder.summary.Metrics.MeshInstances, value: child.Metrics.MeshInstances},
-		{target: &builder.summary.Metrics.Lights, value: child.Metrics.Lights},
-		{target: &builder.summary.Metrics.ShadowLights, value: child.Metrics.ShadowLights},
+		{target: &next.Metrics.Nodes, value: child.Metrics.Nodes},
+		{target: &next.Metrics.SceneInstances, value: child.Metrics.SceneInstances},
+		{target: &next.Metrics.MeshInstances, value: child.Metrics.MeshInstances},
+		{target: &next.Metrics.Lights, value: child.Metrics.Lights},
+		{target: &next.Metrics.ShadowLights, value: child.Metrics.ShadowLights},
 	}
 	for _, field := range fields {
 		contribution, err := checkedMultiply(multiplicity, field.value)
@@ -628,8 +635,8 @@ func (builder *summaryBuilder) applyResolved(
 	if err != nil {
 		return err
 	}
-	builder.summary.Coverage.Resolved, err = checkedAdd(
-		builder.summary.Coverage.Resolved,
+	next.Coverage.Resolved, err = checkedAdd(
+		next.Coverage.Resolved,
 		resolvedContribution,
 	)
 	if err != nil {
@@ -639,8 +646,8 @@ func (builder *summaryBuilder) applyResolved(
 	if err != nil {
 		return err
 	}
-	builder.summary.Coverage.Unresolved, err = checkedAdd(
-		builder.summary.Coverage.Unresolved,
+	next.Coverage.Unresolved, err = checkedAdd(
+		next.Coverage.Unresolved,
 		unresolvedContribution,
 	)
 	if err != nil {
@@ -648,18 +655,18 @@ func (builder *summaryBuilder) applyResolved(
 	}
 
 	if !key.known || child.Metrics.TreeDepth <= 0 {
-		builder.summary.DepthPartial = true
+		next.DepthPartial = true
 	} else {
 		candidate, depthErr := checkedDepth(key.depth, child.Metrics.TreeDepth)
 		if depthErr != nil {
 			return depthErr
 		}
-		if candidate > builder.summary.Metrics.TreeDepth {
-			builder.summary.Metrics.TreeDepth = candidate
+		if candidate > next.Metrics.TreeDepth {
+			next.Metrics.TreeDepth = candidate
 		}
 	}
 	if child.DepthPartial {
-		builder.summary.DepthPartial = true
+		next.DepthPartial = true
 	}
 
 	for _, unresolved := range child.Unresolved {
@@ -667,23 +674,24 @@ func (builder *summaryBuilder) applyResolved(
 		if err != nil {
 			return err
 		}
-		builder.summary.Unresolved = append(builder.summary.Unresolved, unresolved)
+		next.Unresolved = append(next.Unresolved, unresolved)
 	}
 	for _, inherited := range child.InheritedTargets {
 		inherited.Occurrences, err = checkedMultiply(inherited.Occurrences, multiplicity)
 		if err != nil {
 			return err
 		}
-		builder.summary.InheritedTargets = append(builder.summary.InheritedTargets, inherited)
+		next.InheritedTargets = append(next.InheritedTargets, inherited)
 	}
 	for _, finding := range child.ParentFindings {
 		finding.Occurrences, err = checkedMultiply(finding.Occurrences, multiplicity)
 		if err != nil {
 			return err
 		}
-		builder.summary.ParentFindings = append(builder.summary.ParentFindings, finding)
+		next.ParentFindings = append(next.ParentFindings, finding)
 	}
 
+	builder.summary = next
 	builder.dependencies[childPath.Canonical] = struct{}{}
 	for _, dependency := range child.Dependencies {
 		builder.dependencies[dependency] = struct{}{}

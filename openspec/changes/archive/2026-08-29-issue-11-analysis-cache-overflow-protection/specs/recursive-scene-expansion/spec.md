@@ -1,63 +1,24 @@
-## Purpose
+## ADDED Requirements
 
-Defines deterministic recursive expansion of statically resolvable nested text scenes, with correct per-occurrence contributions, unresolved-root evidence, depth composition, closure-wide unique identities, and safe arithmetic.
+### Requirement: Parsed scene coverage comes from successful cache cardinality
+After a successful recursive analysis, the result SHALL expose `parsed_scene_files` as the checked non-negative `int64` count of unique canonical scene documents successfully stored in that invocation's parse cache, including the analyzed root and every successfully parsed reachable instance or inheritance scene. Repeated occurrences and diamond paths MUST NOT multiply this coverage value. Unresolved, unavailable, and parse-failed targets MUST NOT contribute a successful parsed-file entry, and a fatal analysis SHALL return no usable coverage result.
 
-## Requirements
+#### Scenario: Repeated parsed child counts once
+- **WHEN** a root successfully reaches the same parsed child through 100 instance occurrences
+- **THEN** `parsed_scene_files` is two for the root and child
+- **AND** occurrence metrics still apply all 100 child instances
 
-### Requirement: Every instance mount receives a target classification
-The recursive analyzer SHALL classify every local instance mount without silently discarding any branch. A matching external-resource declaration with an existing canonical in-project target whose exact extension is `.tscn` SHALL be attempted as a text scene even when its declared type is not `PackedScene`. Missing or wrong external-resource IDs, path-resolution failures, `SubResource` references, `instance_placeholder` values, imported or binary scene extensions (`.glb`, `.gltf`, `.blend`, `.scn`), inherited-root documents awaiting the dedicated inheritance slice, and other unsupported targets SHALL produce structured unresolved evidence that preserves the declaring scene, resource ID when present, raw target, mount identity, mount depth when known, source position, and classification reason.
+#### Scenario: Diamond cache cardinality
+- **WHEN** root A reaches B and C and both branches reach successfully parsed D
+- **THEN** `parsed_scene_files` is four for A, B, C, and D
+- **AND** the two occurrence paths to D do not add a fifth parsed file
 
-#### Scenario: Existing text scene candidate
-- **WHEN** a mount's external-resource declaration resolves to an existing canonical `.tscn` file inside the project
-- **THEN** that file is attempted as a recursive text-scene target
-- **AND** the target is not rejected solely because its declared resource type is incompatible
+#### Scenario: Unavailable target is not parsed coverage
+- **WHEN** a declared scene target resolves but cannot be opened or parsed successfully
+- **THEN** it does not contribute a successful parse-cache entry
+- **AND** fatal parse failures return no usable recursive result
 
-#### Scenario: Unsupported instance forms
-- **WHEN** mounts use a missing external-resource ID, a `SubResource`, an instance placeholder, an imported or binary extension, or an unresolved secure path
-- **THEN** every mount produces explicit unresolved evidence with its original source and target context
-- **AND** none is silently omitted from occurrence or coverage accounting
-
-#### Scenario: Inherited target is deferred honestly
-- **WHEN** a resolved nested `.tscn` parses successfully but its local summary identifies an inherited root
-- **THEN** this slice retains inherited-target evidence and one known mounted root instead of claiming an exact child expansion
-- **AND** base-scene aggregation remains deferred to the inherited-scene capability
-
-### Requirement: Supported text scenes expand recursively
-An existing canonical non-inherited `.tscn` target that parses as supported Godot format 3 SHALL be converted to its local summary and expanded recursively for its own nested mounts. A syntax or supported-format parse failure in a resolved nested `.tscn` SHALL remain a fatal typed analysis failure rather than being downgraded to an unresolved instance. Expansion MUST use canonical absolute scene identities for loading and memoization while retaining normalized display and original target identities for later presentation.
-
-#### Scenario: Three-scene chain
-- **WHEN** root scene A mounts supported scene B and B mounts supported scene C
-- **THEN** the expanded root summary includes the per-occurrence contributions and closure evidence of B and C
-- **AND** each load uses the canonical identity returned by secure path resolution
-
-#### Scenario: Malformed resolved text scene
-- **WHEN** a resolved `.tscn` target cannot be parsed as the supported format-3 subset
-- **THEN** recursive expansion returns the typed parse failure and does not publish a truncated expanded summary
-
-### Requirement: Resolved instances apply per-occurrence metrics without double-counting roots
-For each resolved child occurrence, the analyzer SHALL add the child's expanded `nodes`, `mesh_instances`, `lights`, and `shadow_lights` contributions without adding a separate node for the mount header. It SHALL add one scene-instance occurrence for the mount plus all nested `scene_instances` inside that child occurrence. If the same child summary is applied `N` times, every occurrence-based child counter and nested resolved/unresolved coverage counter SHALL be applied `N` times; unique sets and tree depth MUST NOT be multiplied.
-
-#### Scenario: Resolved child root
-- **WHEN** a mount resolves to a child summary containing eight nodes and no nested instances
-- **THEN** that occurrence contributes eight nodes and one scene instance
-- **AND** it does not contribute a ninth node for the mount header
-
-#### Scenario: One hundred repeated instances
-- **WHEN** the same child scene is mounted 100 times and its summary contains nested scene-instance occurrences
-- **THEN** its occurrence metrics and nested coverage are applied with multiplicity 100
-- **AND** `scene_instances` includes 100 mount occurrences plus 100 copies of the child's nested occurrences
-
-### Requirement: Unresolved instances retain one known root occurrence
-Every unresolved non-inherited mount occurrence SHALL contribute exactly one known node and one scene instance, increment unresolved scene-instance coverage, and retain its structured unresolved evidence. It MUST NOT contribute unknown inner nodes, mesh instances, lights, shadow lights, resource declarations, or resolved dependencies. Distinct occurrences remain countable even when their unresolved evidence is later grouped.
-
-#### Scenario: Missing nested text scene
-- **WHEN** a mounted `.tscn` target is missing or otherwise unresolved
-- **THEN** the expanded summary adds one known node, one scene instance, and one unresolved coverage occurrence
-- **AND** no inferred inner metric or dependency contribution is added
-
-#### Scenario: Repeated unresolved target
-- **WHEN** the same unresolved target is mounted multiple times
-- **THEN** known root, scene-instance, coverage, and unresolved-evidence occurrence counts preserve the full multiplicity
+## MODIFIED Requirements
 
 ### Requirement: Child tree depth composes at the mount
 For a resolved child with known tree depth `C` mounted at known depth `M`, the expanded candidate depth SHALL be `M + C - 1`. For an unresolved child with known mount depth, that mount depth SHALL remain a known candidate maximum. Tree depth SHALL be the maximum across local known depths and every known child candidate; it MUST NOT be multiplied by occurrence count or changed when a one-occurrence child summary is reused from cache. If either a mount depth or a required child depth is unknown, the analyzer SHALL preserve partial depth evidence and MUST NOT guess a composed value.
@@ -96,24 +57,6 @@ The expanded summary SHALL take its dependency identities from the authoritative
 #### Scenario: Caller mutation cannot alter cached identity sets
 - **WHEN** a caller mutates dependency or resource slices returned from a completed invocation
 - **THEN** no cached one-occurrence summary or independently repeated invocation is altered
-
-### Requirement: Parsed scene coverage comes from successful cache cardinality
-After a successful recursive analysis, the result SHALL expose `parsed_scene_files` as the checked non-negative `int64` count of unique canonical scene documents successfully stored in that invocation's parse cache, including the analyzed root and every successfully parsed reachable instance or inheritance scene. Repeated occurrences and diamond paths MUST NOT multiply this coverage value. Unresolved, unavailable, and parse-failed targets MUST NOT contribute a successful parsed-file entry, and a fatal analysis SHALL return no usable coverage result.
-
-#### Scenario: Repeated parsed child counts once
-- **WHEN** a root successfully reaches the same parsed child through 100 instance occurrences
-- **THEN** `parsed_scene_files` is two for the root and child
-- **AND** occurrence metrics still apply all 100 child instances
-
-#### Scenario: Diamond cache cardinality
-- **WHEN** root A reaches B and C and both branches reach successfully parsed D
-- **THEN** `parsed_scene_files` is four for A, B, C, and D
-- **AND** the two occurrence paths to D do not add a fifth parsed file
-
-#### Scenario: Unavailable target is not parsed coverage
-- **WHEN** a declared scene target resolves but cannot be opened or parsed successfully
-- **THEN** it does not contribute a successful parse-cache entry
-- **AND** fatal parse failures return no usable recursive result
 
 ### Requirement: Scene work is reused without changing multiplicity
 Within one recursive analysis invocation, graph discovery and occurrence expansion SHALL share a canonical-path parse cache. Each canonical `.tscn` identity SHALL be physically opened at most once and have parsing attempted at most once through independently injectable effects; successful documents and deterministic open or parse failures SHALL be memoized for that invocation. Each successfully parsed document SHALL have its local summary and one-occurrence expanded summary constructed at most once. Repeated and diamond-shaped occurrences SHALL reuse cached work but apply occurrence metrics, coverage, and grouped evidence independently at every mount. Cached and returned values SHALL be owned copies. All memoized state MUST be invocation-scoped and MUST NOT persist on disk, require invalidation, or introduce concurrent parsing.

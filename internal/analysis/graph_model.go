@@ -48,8 +48,9 @@ type DependencyGraph struct {
 
 // RecursiveResult pairs occurrence aggregation with its authoritative graph.
 type RecursiveResult struct {
-	Summary ExpandedSummary
-	Graph   DependencyGraph
+	Summary          ExpandedSummary
+	Graph            DependencyGraph
+	ParsedSceneFiles int64
 }
 
 // CycleError is a fatal, explainable resolved-scene dependency cycle.
@@ -87,7 +88,8 @@ func cloneDependencyGraph(graph DependencyGraph) DependencyGraph {
 
 func cloneRecursiveResult(result RecursiveResult) RecursiveResult {
 	return RecursiveResult{
-		Summary: cloneExpandedSummary(result.Summary),
-		Graph:   cloneDependencyGraph(result.Graph),
+		Summary:          cloneExpandedSummary(result.Summary),
+		Graph:            cloneDependencyGraph(result.Graph),
+		ParsedSceneFiles: result.ParsedSceneFiles,
 	}
 }
