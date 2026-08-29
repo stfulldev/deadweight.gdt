@@ -55,7 +55,57 @@
       "unresolved_scene_instances": 0,
       "inherited_scenes": 0
     },
-    "diagnostics": []
+    "diagnostics": [],
+    "contributions": [
+      {
+        "kind": "root",
+        "scene": "res://levels/city.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2841
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 17,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 184
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 1024
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 43
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 9
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      }
+    ],
+    "unique_evidence": []
   },
   "policy": {
     "kind": "preset",

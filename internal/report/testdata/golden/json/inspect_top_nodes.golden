@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "kind": "check",
+  "kind": "inspect",
   "tool": {
     "name": "deadweight.gdt",
     "version": "0.2.0-test"
@@ -226,80 +226,110 @@
         ]
       }
     ],
-    "unique_evidence": []
-  },
-  "policy": {
-    "kind": "preset",
-    "id": "steam-deck",
-    "metadata": {
-      "renderer": "forward_plus",
-      "target_fps": 60,
-      "quality": "balanced",
-      "status": "heuristic",
-      "stability": "experimental"
-    },
-    "fail_on_partial": true
-  },
-  "evaluation": {
-    "comparisons": [
-      {
-        "metric": "nodes",
-        "observed": 2841,
-        "limit": 3000,
-        "delta": -159,
-        "passed": true
-      },
-      {
-        "metric": "tree_depth",
-        "observed": 17,
-        "limit": 20,
-        "delta": -3,
-        "passed": true
-      },
-      {
-        "metric": "scene_instances",
-        "observed": 184,
-        "limit": 250,
-        "delta": -66,
-        "passed": true
-      },
-      {
-        "metric": "mesh_instances",
-        "observed": 1024,
-        "limit": 1000,
-        "delta": 24,
-        "passed": false
-      },
-      {
-        "metric": "lights",
-        "observed": 43,
-        "limit": 32,
-        "delta": 11,
-        "passed": false
-      },
-      {
-        "metric": "shadow_lights",
-        "observed": 9,
-        "limit": 8,
-        "delta": 1,
-        "passed": false
-      },
-      {
-        "metric": "external_resources",
-        "observed": 218,
-        "limit": 300,
-        "delta": -82,
-        "passed": true
-      },
-      {
-        "metric": "scene_dependencies",
-        "observed": 12,
-        "limit": 80,
-        "delta": -68,
-        "passed": true
-      }
-    ],
-    "exceeded": 3,
-    "verdict": "INCOMPLETE"
+    "unique_evidence": [],
+    "top_contributors": {
+      "metric": "nodes",
+      "limit": 2,
+      "rows": [
+        {
+          "kind": "root",
+          "scene": "res://levels/city.tscn",
+          "occurrences": 1,
+          "reliability": "exact",
+          "metrics": [
+            {
+              "id": "nodes",
+              "aggregation": "additive",
+              "value": 2836
+            },
+            {
+              "id": "tree_depth",
+              "aggregation": "maximum",
+              "value": 17,
+              "available": true
+            },
+            {
+              "id": "scene_instances",
+              "aggregation": "additive",
+              "value": 179
+            },
+            {
+              "id": "mesh_instances",
+              "aggregation": "additive",
+              "value": 1024
+            },
+            {
+              "id": "lights",
+              "aggregation": "additive",
+              "value": 43
+            },
+            {
+              "id": "shadow_lights",
+              "aggregation": "additive",
+              "value": 9
+            },
+            {
+              "id": "external_resources",
+              "aggregation": "unique_union"
+            },
+            {
+              "id": "scene_dependencies",
+              "aggregation": "unique_union"
+            }
+          ]
+        },
+        {
+          "kind": "unresolved",
+          "scene": "res://models/car.glb",
+          "declaring_scene": "res://levels/city.tscn",
+          "mount_path": "Cars",
+          "raw_target": "res://models/car.glb",
+          "classification": "imported_scene",
+          "occurrences": 3,
+          "reliability": "lower_bound",
+          "metrics": [
+            {
+              "id": "nodes",
+              "aggregation": "additive",
+              "value": 3
+            },
+            {
+              "id": "tree_depth",
+              "aggregation": "maximum",
+              "value": 3,
+              "available": true
+            },
+            {
+              "id": "scene_instances",
+              "aggregation": "additive",
+              "value": 3
+            },
+            {
+              "id": "mesh_instances",
+              "aggregation": "additive",
+              "value": 0
+            },
+            {
+              "id": "lights",
+              "aggregation": "additive",
+              "value": 0
+            },
+            {
+              "id": "shadow_lights",
+              "aggregation": "additive",
+              "value": 0
+            },
+            {
+              "id": "external_resources",
+              "aggregation": "unique_union"
+            },
+            {
+              "id": "scene_dependencies",
+              "aggregation": "unique_union"
+            }
+          ]
+        }
+      ]
+    }
   }
 }
