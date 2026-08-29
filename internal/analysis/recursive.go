@@ -46,31 +46,49 @@ func NewRecursiveAnalyzer(resolver ResourceResolver, loader SceneLoader) (*Recur
 	}, nil
 }
 
-// Expand returns the deterministic recursive contribution of one canonical
-// root scene. Fatal failures return a zero summary.
-func (analyzer *RecursiveAnalyzer) Expand(root project.ResolvedPath) (ExpandedSummary, error) {
+// Analyze returns the deterministic recursive contribution and dependency
+// graph for one canonical root scene. Fatal failures return a zero result.
+func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (RecursiveResult, error) {
 	if analyzer == nil || analyzer.resolver == nil || analyzer.loader == nil || analyzer.summarize == nil {
-		return ExpandedSummary{}, errors.New("recursive analyzer is not initialized")
+		return RecursiveResult{}, errors.New("recursive analyzer is not initialized")
 	}
 	if err := validateCanonicalRoot(root); err != nil {
-		return ExpandedSummary{}, err
+		return RecursiveResult{}, err
 	}
 
 	state := invocationState{
-		analyzer:       analyzer,
-		documents:      make(map[string]*tscn.Document),
-		documentErrors: make(map[string]error),
-		localSummaries: make(map[string]LocalSummary),
-		summaries:      make(map[string]ExpandedSummary),
-		inProgress:     make(map[string]project.ResolvedPath),
+		analyzer:            analyzer,
+		documents:           make(map[string]*tscn.Document),
+		documentErrors:      make(map[string]error),
+		localSummaries:      make(map[string]LocalSummary),
+		resourceResolutions: make(map[string]map[string]resourceResolution),
+		summaries:           make(map[string]ExpandedSummary),
+		inProgress:          make(map[string]project.ResolvedPath),
 	}
 
+	graph, graphResources, err := state.discoverGraph(root)
+	if err != nil {
+		return RecursiveResult{}, err
+	}
 	summary, err := state.expandScene(root)
+	if err != nil {
+		return RecursiveResult{}, err
+	}
+	summary.Dependencies = graphDependencyPaths(graph)
+	summary.ExternalResources = mergeResourceIdentities(summary.ExternalResources, graphResources)
+	result := RecursiveResult{Summary: summary, Graph: graph}
+
+	return cloneRecursiveResult(result), nil
+}
+
+// Expand preserves the summary-only issue #9 API as a projection of Analyze.
+func (analyzer *RecursiveAnalyzer) Expand(root project.ResolvedPath) (ExpandedSummary, error) {
+	result, err := analyzer.Analyze(root)
 	if err != nil {
 		return ExpandedSummary{}, err
 	}
 
-	return cloneExpandedSummary(summary), nil
+	return cloneExpandedSummary(result.Summary), nil
 }
 
 func validateCanonicalRoot(root project.ResolvedPath) error {
@@ -90,12 +108,16 @@ func validateCanonicalRoot(root project.ResolvedPath) error {
 var _ ResourceResolver = project.Resolver{}
 
 type invocationState struct {
-	analyzer       *RecursiveAnalyzer
-	documents      map[string]*tscn.Document
-	documentErrors map[string]error
-	localSummaries map[string]LocalSummary
-	summaries      map[string]ExpandedSummary
-	inProgress     map[string]project.ResolvedPath
+	analyzer            *RecursiveAnalyzer
+	documents           map[string]*tscn.Document
+	documentErrors      map[string]error
+	localSummaries      map[string]LocalSummary
+	resourceResolutions map[string]map[string]resourceResolution
+	summaries           map[string]ExpandedSummary
+	inProgress          map[string]project.ResolvedPath
+	graphStates         map[string]graphVisitState
+	graphStack          []project.ResolvedPath
+	graphStackIndices   map[string]int
 }
 
 type sceneLoadError struct {
@@ -127,6 +149,16 @@ type resourceResolution struct {
 	resolution project.Resolution
 }
 
+type targetEvidence struct {
+	Classification   TargetClassification
+	ResolutionReason project.ResolutionReason
+	ResourceID       string
+	RawTarget        string
+	TargetCanonical  string
+	TargetDisplay    string
+	TargetOriginal   string
+}
+
 type resolvedApplicationKey struct {
 	canonical string
 	depth     int64
@@ -150,10 +182,10 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 		return cloneExpandedSummary(cached), nil
 	}
 	if active, exists := state.inProgress[path.Canonical]; exists {
-		return ExpandedSummary{}, &RecursiveReferenceError{
-			Canonical: active.Canonical,
-			Display:   active.Display,
-		}
+		return ExpandedSummary{}, fmt.Errorf(
+			"recursive expansion reached graph-unvalidated identity %q",
+			active.Display,
+		)
 	}
 
 	state.inProgress[path.Canonical] = path
@@ -165,7 +197,8 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 	}
 
 	builder := newSummaryBuilder(local, path)
-	resolvedResources := state.resolveSceneResources(path, local.ExternalResources, builder)
+	resolvedResources := state.resolveSceneResources(path, local.ExternalResources)
+	builder.unionResources(resourceIdentities(path, resolvedResources))
 	if local.InheritedRoot != nil {
 		base := resolvedResources[local.InheritedRoot.Reference.ID]
 		return ExpandedSummary{}, &inheritedSceneError{
@@ -307,26 +340,43 @@ func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBu
 func (state *invocationState) resolveSceneResources(
 	path project.ResolvedPath,
 	resources []ExternalResource,
-	builder *summaryBuilder,
 ) map[string]resourceResolution {
+	if cached, exists := state.resourceResolutions[path.Canonical]; exists {
+		return cached
+	}
+
 	resolved := make(map[string]resourceResolution, len(resources))
 	for _, resource := range resources {
 		resolution := state.analyzer.resolver.ResolveResource(path.Canonical, resource.Path)
 		entry := resourceResolution{resource: resource, resolution: resolution}
 		resolved[resource.ID] = entry
-
-		identity := ResourceIdentity{
-			DeclaringScene: path.Canonical,
-			ResourceID:     resource.ID,
-			RawPath:        resource.Path,
-		}
-		if resolution.Resolved() {
-			identity = ResourceIdentity{Resolved: true, Canonical: resolution.Path.Canonical}
-		}
-		builder.resources[identity] = struct{}{}
 	}
+	state.resourceResolutions[path.Canonical] = resolved
 
 	return resolved
+}
+
+func resourceIdentities(
+	path project.ResolvedPath,
+	resources map[string]resourceResolution,
+) []ResourceIdentity {
+	identities := make(map[ResourceIdentity]struct{}, len(resources))
+	for _, resolved := range resources {
+		identity := ResourceIdentity{
+			DeclaringScene: path.Canonical,
+			ResourceID:     resolved.resource.ID,
+			RawPath:        resolved.resource.Path,
+		}
+		if resolved.resolution.Resolved() {
+			identity = ResourceIdentity{
+				Resolved:  true,
+				Canonical: resolved.resolution.Path.Canonical,
+			}
+		}
+		identities[identity] = struct{}{}
+	}
+
+	return sortedResourceIdentities(identities)
 }
 
 func classifyMount(
@@ -334,45 +384,107 @@ func classifyMount(
 	mount InstanceMount,
 	resources map[string]resourceResolution,
 ) (project.ResolvedPath, *UnresolvedInstance) {
-	switch {
-	case mount.Kind == MountPlaceholder:
-		evidence := unresolvedFromMount(declaring, mount, TargetPlaceholder, "")
-		evidence.RawTarget = mount.Placeholder
-		return project.ResolvedPath{}, &evidence
-	case mount.Reference.Kind == tscn.ResourceRefInternal || mount.Kind == MountSubResource:
-		evidence := unresolvedFromMount(declaring, mount, TargetSubResource, "")
-		return project.ResolvedPath{}, &evidence
-	case mount.Reference.Kind != tscn.ResourceRefExternal:
-		evidence := unresolvedFromMount(declaring, mount, TargetMissingExternalResource, "")
-		return project.ResolvedPath{}, &evidence
+	target, evidence := classifyTarget(declaring, mount.Reference, mount.Placeholder, resources)
+	if evidence == nil {
+		return target, nil
 	}
 
-	resource, exists := resources[mount.Reference.ID]
+	unresolved := unresolvedFromMount(
+		declaring,
+		mount,
+		evidence.Classification,
+		evidence.ResolutionReason,
+	)
+	unresolved.RawTarget = evidence.RawTarget
+	unresolved.TargetCanonical = evidence.TargetCanonical
+	unresolved.TargetDisplay = evidence.TargetDisplay
+	unresolved.TargetOriginal = evidence.TargetOriginal
+
+	return project.ResolvedPath{}, &unresolved
+}
+
+func classifyTarget(
+	_ project.ResolvedPath,
+	reference ResourceReference,
+	placeholder string,
+	resources map[string]resourceResolution,
+) (project.ResolvedPath, *targetEvidence) {
+	switch {
+	case placeholder != "":
+		return project.ResolvedPath{}, &targetEvidence{
+			Classification: TargetPlaceholder,
+			RawTarget:      placeholder,
+		}
+	case reference.Kind == tscn.ResourceRefInternal:
+		return project.ResolvedPath{}, &targetEvidence{
+			Classification: TargetSubResource,
+			ResourceID:     reference.ID,
+			RawTarget:      reference.ID,
+		}
+	case reference.Kind != tscn.ResourceRefExternal:
+		return project.ResolvedPath{}, &targetEvidence{
+			Classification: TargetMissingExternalResource,
+			ResourceID:     reference.ID,
+		}
+	}
+
+	resource, exists := resources[reference.ID]
 	if !exists {
-		evidence := unresolvedFromMount(declaring, mount, TargetMissingExternalResource, "")
-		return project.ResolvedPath{}, &evidence
+		return project.ResolvedPath{}, &targetEvidence{
+			Classification: TargetMissingExternalResource,
+			ResourceID:     reference.ID,
+		}
 	}
 
 	if !resource.resolution.Resolved() {
-		evidence := unresolvedFromMount(declaring, mount, TargetUnresolvedPath, resource.resolution.Reason)
-		evidence.RawTarget = resource.resource.Path
-		evidence.TargetOriginal = resource.resolution.Path.Original
-		return project.ResolvedPath{}, &evidence
+		return project.ResolvedPath{}, &targetEvidence{
+			Classification:   TargetUnresolvedPath,
+			ResolutionReason: resource.resolution.Reason,
+			ResourceID:       reference.ID,
+			RawTarget:        resource.resource.Path,
+			TargetOriginal:   resource.resolution.Path.Original,
+		}
 	}
 
 	target := resource.resolution.Path
+	if target.Original == "" {
+		target.Original = resource.resource.Path
+	}
 	extension := filepath.Ext(target.Canonical)
 	switch extension {
 	case ".tscn":
 		return target, nil
 	case ".glb", ".gltf", ".blend", ".scn":
-		evidence := unresolvedFromMount(declaring, mount, TargetImportedScene, project.ResolutionResolved)
-		populateResolvedTarget(&evidence, resource.resource.Path, target)
-		return project.ResolvedPath{}, &evidence
+		return project.ResolvedPath{}, resolvedTargetEvidence(
+			TargetImportedScene,
+			reference.ID,
+			resource.resource.Path,
+			target,
+		)
 	default:
-		evidence := unresolvedFromMount(declaring, mount, TargetUnsupportedScene, project.ResolutionResolved)
-		populateResolvedTarget(&evidence, resource.resource.Path, target)
-		return project.ResolvedPath{}, &evidence
+		return project.ResolvedPath{}, resolvedTargetEvidence(
+			TargetUnsupportedScene,
+			reference.ID,
+			resource.resource.Path,
+			target,
+		)
+	}
+}
+
+func resolvedTargetEvidence(
+	classification TargetClassification,
+	resourceID string,
+	raw string,
+	target project.ResolvedPath,
+) *targetEvidence {
+	return &targetEvidence{
+		Classification:   classification,
+		ResolutionReason: project.ResolutionResolved,
+		ResourceID:       resourceID,
+		RawTarget:        raw,
+		TargetCanonical:  target.Canonical,
+		TargetDisplay:    target.Display,
+		TargetOriginal:   target.Original,
 	}
 }
 
@@ -394,13 +506,6 @@ func unresolvedFromMount(
 		Position:         mount.Position,
 		Occurrences:      1,
 	}
-}
-
-func populateResolvedTarget(evidence *UnresolvedInstance, raw string, target project.ResolvedPath) {
-	evidence.RawTarget = raw
-	evidence.TargetCanonical = target.Canonical
-	evidence.TargetDisplay = target.Display
-	evidence.TargetOriginal = target.Original
 }
 
 func sortedApplicationKeys(applications map[resolvedApplicationKey]*resolvedApplication) []resolvedApplicationKey {
@@ -595,8 +700,12 @@ func (builder *summaryBuilder) unionResources(resources []ResourceIdentity) {
 }
 
 func (builder *summaryBuilder) sortedResources() []ResourceIdentity {
-	resources := make([]ResourceIdentity, 0, len(builder.resources))
-	for identity := range builder.resources {
+	return sortedResourceIdentities(builder.resources)
+}
+
+func sortedResourceIdentities(resourcesSet map[ResourceIdentity]struct{}) []ResourceIdentity {
+	resources := make([]ResourceIdentity, 0, len(resourcesSet))
+	for identity := range resourcesSet {
 		resources = append(resources, identity)
 	}
 	sort.Slice(resources, func(left, right int) bool {
@@ -619,6 +728,17 @@ func (builder *summaryBuilder) sortedResources() []ResourceIdentity {
 	})
 
 	return resources
+}
+
+func mergeResourceIdentities(groups ...[]ResourceIdentity) []ResourceIdentity {
+	resources := make(map[ResourceIdentity]struct{})
+	for _, group := range groups {
+		for _, identity := range group {
+			resources[identity] = struct{}{}
+		}
+	}
+
+	return sortedResourceIdentities(resources)
 }
 
 func (builder *summaryBuilder) finish() ExpandedSummary {
