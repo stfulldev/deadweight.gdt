@@ -87,9 +87,9 @@ type SceneParentFinding struct {
 	Occurrences      int64
 }
 
-// ExpandedSummary is the deterministic one-occurrence recursive contribution
-// of a canonical scene. The two unique metric fields remain zero until the
-// later final-metrics layer derives them from the retained sets.
+// ExpandedSummary is the deterministic recursive contribution of a canonical
+// scene. Cached one-occurrence summaries keep the two unique metric fields at
+// zero; the public root result finalizes them from the retained sets and graph.
 type ExpandedSummary struct {
 	Metrics           metrics.Values
 	ExternalResources []ResourceIdentity

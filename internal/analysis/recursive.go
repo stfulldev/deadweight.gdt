@@ -84,6 +84,10 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 	}
 	summary.Dependencies = graphDependencyPaths(graph)
 	summary.ExternalResources = mergeResourceIdentities(summary.ExternalResources, graphResources)
+	summary.Metrics, err = finalizeMetrics(summary, graph)
+	if err != nil {
+		return RecursiveResult{}, err
+	}
 	parsedSceneFiles, err := state.cache.parsedSceneFiles()
 	if err != nil {
 		return RecursiveResult{}, err
