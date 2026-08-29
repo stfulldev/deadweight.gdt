@@ -99,14 +99,6 @@ func (coverage Coverage) Validate() error {
 			return fmt.Errorf("coverage %s must be non-negative, got %d", field.name, field.value)
 		}
 	}
-	if coverage.InheritedScenes > coverage.UnresolvedSceneInstances {
-		return fmt.Errorf(
-			"coverage inherited_scenes %d exceeds unresolved_scene_instances %d",
-			coverage.InheritedScenes,
-			coverage.UnresolvedSceneInstances,
-		)
-	}
-
 	return nil
 }
 

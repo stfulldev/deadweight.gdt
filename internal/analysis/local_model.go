@@ -118,4 +118,5 @@ type LocalSummary struct {
 	ExternalResources []ExternalResource
 	Findings          []ParentFinding
 	DepthPartial      bool
+	HasEditable       bool
 }

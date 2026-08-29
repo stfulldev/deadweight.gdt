@@ -339,7 +339,7 @@ func TestRecursiveAnalyzerRetainsUnresolvedInheritanceEdge(t *testing.T) {
 	}
 }
 
-func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(t *testing.T) {
+func TestRecursiveAnalyzerTraversesResolvedInheritanceAndAppliesItsMetrics(t *testing.T) {
 	rootDir := t.TempDir()
 	root := testScenePath(rootDir, "root.tscn")
 	inherited := testScenePath(rootDir, "inherited.tscn")
@@ -388,16 +388,17 @@ func TestRecursiveAnalyzerTraversesResolvedInheritanceWithoutApplyingItsMetrics(
 		t.Fatalf("Dependencies = %#v, want %#v", result.Summary.Dependencies, wantDependencies)
 	}
 	if result.Summary.Metrics != (metrics.Values{
-		Nodes: 2, TreeDepth: 2, SceneInstances: 1, ExternalResources: 4, SceneDependencies: 3,
-	}) || result.Summary.Coverage.Unresolved != 1 {
-		t.Fatalf("inherited metrics were applied exactly: %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
+		Nodes: 3, TreeDepth: 3, SceneInstances: 2, MeshInstances: 1,
+		ExternalResources: 4, SceneDependencies: 3,
+	}) || result.Summary.Coverage != (SceneInstanceCoverage{Resolved: 2}) {
+		t.Fatalf("inherited metrics were not applied exactly once: %#v/%#v", result.Summary.Metrics, result.Summary.Coverage)
 	}
 	if result.ParsedSceneFiles != 4 {
 		t.Fatalf("ParsedSceneFiles = %d, want 4", result.ParsedSceneFiles)
 	}
 	if result.Status != AnalysisPartial || result.Reliability != ReliabilityApproximate ||
 		result.Coverage != (Coverage{
-			UnresolvedSceneInstances: 1, ParsedSceneFiles: 4, InheritedScenes: 1,
+			ResolvedSceneInstances: 2, ParsedSceneFiles: 4, InheritedScenes: 1,
 		}) || len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != diagnostic.CodeInheritedScene {
 		t.Fatalf("completeness = %q/%q/%#v/%#v", result.Status, result.Reliability, result.Coverage, result.Diagnostics)
 	}
@@ -625,7 +626,7 @@ func TestRecursiveAnalyzerGraphUsesRealResolverForRelativeInheritance(t *testing
 	if result.ParsedSceneFiles != 3 {
 		t.Fatalf("ParsedSceneFiles = %d, want 3", result.ParsedSceneFiles)
 	}
-	if result.Summary.Metrics.MeshInstances != 0 ||
+	if result.Summary.Metrics.MeshInstances != 1 ||
 		result.Summary.Metrics.ExternalResources != 2 ||
 		result.Summary.Metrics.SceneDependencies != 2 {
 		t.Fatalf("final metrics = %#v", result.Summary.Metrics)

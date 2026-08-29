@@ -5,7 +5,7 @@ Defines deterministic recursive expansion of statically resolvable nested text s
 ## Requirements
 
 ### Requirement: Every instance mount receives a target classification
-The recursive analyzer SHALL classify every local instance mount without silently discarding any branch. A matching external-resource declaration with an existing canonical in-project target whose exact extension is `.tscn` SHALL be attempted as a text scene even when its declared type is not `PackedScene`. Missing or wrong external-resource IDs, path-resolution failures, `SubResource` references, `instance_placeholder` values, imported or binary scene extensions (`.glb`, `.gltf`, `.blend`, `.scn`), inherited-root documents awaiting the dedicated inheritance slice, and other unsupported targets SHALL produce structured unresolved evidence that preserves the declaring scene, resource ID when present, raw target, mount identity, mount depth when known, source position, and classification reason.
+The recursive analyzer SHALL classify every local instance mount without silently discarding any branch. A matching external-resource declaration with an existing canonical in-project target whose exact extension is `.tscn` SHALL be attempted as a text scene even when its declared type is not `PackedScene`. Missing or wrong external-resource IDs, path-resolution failures, `SubResource` references, `instance_placeholder` values, imported or binary scene extensions (`.glb`, `.gltf`, `.blend`, `.scn`), and other unsupported targets SHALL produce structured unresolved evidence that preserves the declaring scene, resource ID when present, raw target, mount identity, mount depth when known, source position, and classification reason. A successfully parsed inherited-root child SHALL use the limited inherited-scene analysis contract and retain approximation evidence instead of being downgraded to an unresolved one-known-root child.
 
 #### Scenario: Existing text scene candidate
 - **WHEN** a mount's external-resource declaration resolves to an existing canonical `.tscn` file inside the project
@@ -18,9 +18,9 @@ The recursive analyzer SHALL classify every local instance mount without silentl
 - **AND** none is silently omitted from occurrence or coverage accounting
 
 #### Scenario: Inherited target is deferred honestly
-- **WHEN** a resolved nested `.tscn` parses successfully but its local summary identifies an inherited root
-- **THEN** this slice retains inherited-target evidence and one known mounted root instead of claiming an exact child expansion
-- **AND** base-scene aggregation remains deferred to the inherited-scene capability
+- **WHEN** a resolved nested `.tscn` parses successfully and its local summary identifies an inherited root
+- **THEN** the child applies its supported base and explicit local contributions through the inherited-scene contract
+- **AND** its occurrence retains approximate inheritance evidence rather than claiming exact expansion
 
 ### Requirement: Supported text scenes expand recursively
 An existing canonical non-inherited `.tscn` target that parses as supported Godot format 3 SHALL be converted to its local summary and expanded recursively for its own nested mounts. A syntax or supported-format parse failure in a resolved nested `.tscn` SHALL remain a fatal typed analysis failure rather than being downgraded to an unresolved instance. Expansion MUST use canonical absolute scene identities for loading and memoization while retaining normalized display and original target identities for later presentation.
@@ -77,7 +77,7 @@ For a resolved child with known tree depth `C` mounted at known depth `M`, the e
 - **AND** the depth is not multiplied by 100
 
 ### Requirement: Canonical resource and dependency identities form unique closure sets
-The expanded summary SHALL take its dependency identities from the authoritative scene-dependency graph and preserve every successfully loaded nested `.tscn` canonical path reachable through resolved instance or inheritance edges, excluding the analyzed root identity. Resolved inheritance traversal SHALL contribute topology and unique dependency evidence without claiming exact inherited metric aggregation. The summary SHALL preserve one external-resource identity for every declaration in every successfully parsed scene used by recursive or graph traversal: the canonical absolute target for a resolved declaration, or the tuple `(declaring canonical scene, document-local resource ID, raw path)` for an unresolved declaration. Applying a cached child more than once MUST union these identities rather than multiply them. Returned identity collections SHALL be owned and deterministically ordered.
+The expanded summary SHALL take its dependency identities from the authoritative scene-dependency graph and preserve every successfully loaded nested `.tscn` canonical path reachable through resolved instance or inheritance edges, excluding the analyzed root identity. Resolved inheritance traversal SHALL contribute topology, unique dependency evidence, and the deliberately approximate base-summary contribution defined by the inherited-scene capability. The summary SHALL preserve one external-resource identity for every declaration in every successfully parsed scene used by recursive or graph traversal: the canonical absolute target for a resolved declaration, or the tuple `(declaring canonical scene, document-local resource ID, raw path)` for an unresolved declaration. Applying a cached child more than once MUST union these identities rather than multiply them. Returned identity collections SHALL be owned and deterministically ordered.
 
 #### Scenario: Diamond dependency
 - **WHEN** two child branches reach the same canonical descendant scene and declarations resolve to the same canonical external target
@@ -91,7 +91,7 @@ The expanded summary SHALL take its dependency identities from the authoritative
 #### Scenario: Inherited topology without inherited metric expansion
 - **WHEN** a parsed nested scene inherits a resolved supported base scene
 - **THEN** the nested and base canonical paths appear in graph-backed dependency identities
-- **AND** the base's effective-tree metrics are not merged as an exact inherited contribution before the inherited-scene capability
+- **AND** the base's one-occurrence summary contributes once while the result remains approximate
 
 #### Scenario: Caller mutation cannot alter cached identity sets
 - **WHEN** a caller mutates dependency or resource slices returned from a completed invocation

@@ -87,7 +87,9 @@ func finalizeCompleteness(
 	for _, evidence := range summary.InheritedTargets {
 		if !evidence.Classification.Valid() ||
 			evidence.Classification != TargetInheritedScene ||
-			evidence.Occurrences <= 0 {
+			evidence.Occurrences <= 0 ||
+			(evidence.BaseClassification != "" && !evidence.BaseClassification.Valid()) ||
+			(evidence.BaseResolutionReason != "" && !evidence.BaseResolutionReason.Valid()) {
 			return completionResult{}, fmt.Errorf("invalid inherited-scene evidence: %#v", evidence)
 		}
 		coverage.InheritedScenes, err = checkedAdd(coverage.InheritedScenes, evidence.Occurrences)
@@ -97,6 +99,12 @@ func finalizeCompleteness(
 		item, key := inheritedDiagnostic(evidence)
 		if err := addDiagnosticGroup(groups, key, item, evidence.Occurrences); err != nil {
 			return completionResult{}, err
+		}
+		if evidence.BaseResourceID != "" {
+			coveredResources[resourceDeclarationKey{
+				declaringScene: evidence.DeclaringScene,
+				resourceID:     evidence.BaseResourceID,
+			}] = struct{}{}
 		}
 		approximate = true
 	}
@@ -272,6 +280,9 @@ func unresolvedDiagnostic(evidence UnresolvedInstance) (diagnostic.Diagnostic, d
 
 func inheritedDiagnostic(evidence InheritedTarget) (diagnostic.Diagnostic, diagnosticGroupKey) {
 	resource := firstNonEmpty(
+		evidence.BaseDisplay,
+		evidence.BaseCanonical,
+		evidence.BaseRawTarget,
 		evidence.TargetDisplay,
 		evidence.TargetCanonical,
 		evidence.TargetOriginal,
@@ -289,7 +300,12 @@ func inheritedDiagnostic(evidence InheritedTarget) (diagnostic.Diagnostic, diagn
 		item.File = evidence.DeclaringScene
 	}
 
-	return item, diagnosticKey(item, resource, "", evidence.Classification)
+	classification := evidence.BaseClassification
+	if classification == "" {
+		classification = evidence.Classification
+	}
+
+	return item, diagnosticKey(item, resource, evidence.BaseResolutionReason, classification)
 }
 
 func parentDiagnostic(finding SceneParentFinding) (diagnostic.Diagnostic, diagnosticGroupKey) {
