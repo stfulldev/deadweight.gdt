@@ -75,8 +75,8 @@ type UnresolvedInstance struct {
 	Occurrences      int64
 }
 
-// InheritedTarget records a parsed nested scene whose inherited base remains
-// intentionally unexpanded until the inherited-scene analysis capability.
+// InheritedTarget records one inherited-scene occurrence and the evidence
+// used to classify or approximately expand its base scene.
 type InheritedTarget struct {
 	Classification        TargetClassification
 	DeclaringScene        string
@@ -88,6 +88,10 @@ type InheritedTarget struct {
 	BaseRawTarget         string
 	BaseCanonical         string
 	BaseDisplay           string
+	BaseClassification    TargetClassification
+	BaseResolutionReason  project.ResolutionReason
+	HasOverrideStubs      bool
+	HasEditable           bool
 	MountName             string
 	MountPath             string
 	MountDepth            OptionalDepth

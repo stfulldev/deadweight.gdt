@@ -157,17 +157,6 @@ func (err *sceneLoadError) Unwrap() error {
 	return err.cause
 }
 
-type inheritedSceneError struct {
-	path      project.ResolvedPath
-	root      InheritedRoot
-	resources []ResourceIdentity
-	base      resourceResolution
-}
-
-func (err *inheritedSceneError) Error() string {
-	return fmt.Sprintf("nested scene %q has an inherited root", err.path.Display)
-}
-
 type resourceResolution struct {
 	resource   ExternalResource
 	resolution project.Resolution
@@ -224,12 +213,8 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 	resolvedResources := state.resolveSceneResources(path, local.ExternalResources)
 	builder.unionResources(resourceIdentities(path, resolvedResources))
 	if local.InheritedRoot != nil {
-		base := resolvedResources[local.InheritedRoot.Reference.ID]
-		return ExpandedSummary{}, &inheritedSceneError{
-			path:      path,
-			root:      cloneInheritedRoot(*local.InheritedRoot),
-			resources: builder.sortedResources(),
-			base:      base,
+		if err := state.applyInheritance(path, local, resolvedResources, builder); err != nil {
+			return ExpandedSummary{}, err
 		}
 	}
 
@@ -264,18 +249,8 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 		application := applications[key]
 		child, expandErr := state.expandScene(application.path)
 		if expandErr != nil {
-			var inherited *inheritedSceneError
 			var unavailable *sceneLoadError
 			switch {
-			case errors.As(expandErr, &inherited):
-				builder.unionResources(inherited.resources)
-				builder.dependencies[inherited.path.Canonical] = struct{}{}
-				for _, mount := range application.mounts {
-					if err := builder.addInherited(path, mount, inherited); err != nil {
-						return ExpandedSummary{}, err
-					}
-				}
-				continue
 			case errors.As(expandErr, &unavailable):
 				for _, mount := range application.mounts {
 					evidence := unresolvedFromMount(path, mount, TargetUnavailableScene, project.ResolutionFilesystem)
@@ -302,6 +277,76 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 	state.cache.storeExpandedSummary(path.Canonical, result)
 
 	return cloneExpandedSummary(result), nil
+}
+
+func (state *invocationState) applyInheritance(
+	path project.ResolvedPath,
+	local LocalSummary,
+	resources map[string]resourceResolution,
+	builder *summaryBuilder,
+) error {
+	root := cloneInheritedRoot(*local.InheritedRoot)
+	basePath, unresolved := classifyTarget(path, root.Reference, "", resources)
+	evidence := inheritedEvidence(path, local, root, resources[root.Reference.ID], basePath, unresolved)
+	if unresolved != nil {
+		return builder.addUnsupportedInheritance(evidence)
+	}
+
+	base, err := state.expandScene(basePath)
+	if err != nil {
+		var unavailable *sceneLoadError
+		if !errors.As(err, &unavailable) {
+			return err
+		}
+		evidence.BaseClassification = TargetUnavailableScene
+		evidence.BaseResolutionReason = project.ResolutionFilesystem
+		return builder.addUnsupportedInheritance(evidence)
+	}
+
+	return builder.applyInheritedBase(basePath, base, evidence)
+}
+
+func inheritedEvidence(
+	path project.ResolvedPath,
+	local LocalSummary,
+	root InheritedRoot,
+	base resourceResolution,
+	basePath project.ResolvedPath,
+	unresolved *targetEvidence,
+) InheritedTarget {
+	evidence := InheritedTarget{
+		Classification:        TargetInheritedScene,
+		DeclaringScene:        path.Canonical,
+		DeclaringDisplay:      path.Display,
+		BaseResourceID:        root.Reference.ID,
+		HasOverrideStubs:      len(local.OverrideStubs) > 0,
+		HasEditable:           local.HasEditable,
+		MountName:             root.Name,
+		MountPath:             root.Path,
+		MountDepth:            root.Depth,
+		MountPosition:         root.Position,
+		InheritedRootPosition: root.Position,
+		Occurrences:           1,
+	}
+	if base.resource.ID != "" {
+		evidence.BaseRawTarget = base.resource.Path
+	}
+	if unresolved == nil {
+		evidence.BaseCanonical = basePath.Canonical
+		evidence.BaseDisplay = basePath.Display
+		evidence.BaseResolutionReason = project.ResolutionResolved
+		return evidence
+	}
+
+	evidence.BaseClassification = unresolved.Classification
+	evidence.BaseResolutionReason = unresolved.ResolutionReason
+	if evidence.BaseRawTarget == "" {
+		evidence.BaseRawTarget = unresolved.RawTarget
+	}
+	evidence.BaseCanonical = unresolved.TargetCanonical
+	evidence.BaseDisplay = unresolved.TargetDisplay
+
+	return evidence
 }
 
 func (state *invocationState) loadLocalSummary(path project.ResolvedPath) (LocalSummary, error) {
@@ -563,51 +608,65 @@ func (builder *summaryBuilder) addUnresolved(evidence UnresolvedInstance) error 
 	return nil
 }
 
-func (builder *summaryBuilder) addInherited(
-	declaring project.ResolvedPath,
-	mount InstanceMount,
-	inherited *inheritedSceneError,
-) error {
+func (builder *summaryBuilder) addUnsupportedInheritance(evidence InheritedTarget) error {
 	nodes, err := checkedAdd(builder.summary.Metrics.Nodes, 1)
 	if err != nil {
 		return err
 	}
-	unresolved, err := checkedAdd(builder.summary.Coverage.Unresolved, 1)
-	if err != nil {
-		return err
-	}
-
-	evidence := InheritedTarget{
-		Classification:        TargetInheritedScene,
-		DeclaringScene:        declaring.Canonical,
-		DeclaringDisplay:      declaring.Display,
-		TargetCanonical:       inherited.path.Canonical,
-		TargetDisplay:         inherited.path.Display,
-		TargetOriginal:        inherited.path.Original,
-		BaseResourceID:        inherited.root.Reference.ID,
-		MountName:             mount.Name,
-		MountPath:             mount.Path,
-		MountDepth:            mount.Depth,
-		MountPosition:         mount.Position,
-		InheritedRootPosition: inherited.root.Position,
-		Occurrences:           1,
-	}
-	if inherited.base.resource.ID != "" {
-		evidence.BaseRawTarget = inherited.base.resource.Path
-	}
-	if inherited.base.resolution.Resolved() {
-		evidence.BaseCanonical = inherited.base.resolution.Path.Canonical
-		evidence.BaseDisplay = inherited.base.resolution.Path.Display
-	}
 
 	next := cloneExpandedSummary(builder.summary)
 	next.Metrics.Nodes = nodes
-	next.Coverage.Unresolved = unresolved
-	if !mount.Depth.Known {
-		next.DepthPartial = true
+	if next.Metrics.TreeDepth < 1 {
+		next.Metrics.TreeDepth = 1
 	}
 	next.InheritedTargets = append(next.InheritedTargets, evidence)
 	builder.summary = next
+
+	return nil
+}
+
+func (builder *summaryBuilder) applyInheritedBase(
+	basePath project.ResolvedPath,
+	base ExpandedSummary,
+	evidence InheritedTarget,
+) error {
+	next := cloneExpandedSummary(builder.summary)
+	fields := []struct {
+		target *int64
+		value  int64
+	}{
+		{target: &next.Metrics.Nodes, value: base.Metrics.Nodes},
+		{target: &next.Metrics.SceneInstances, value: base.Metrics.SceneInstances},
+		{target: &next.Metrics.MeshInstances, value: base.Metrics.MeshInstances},
+		{target: &next.Metrics.Lights, value: base.Metrics.Lights},
+		{target: &next.Metrics.ShadowLights, value: base.Metrics.ShadowLights},
+		{target: &next.Coverage.Resolved, value: base.Coverage.Resolved},
+		{target: &next.Coverage.Unresolved, value: base.Coverage.Unresolved},
+	}
+	for _, field := range fields {
+		value, err := checkedAdd(*field.target, field.value)
+		if err != nil {
+			return err
+		}
+		*field.target = value
+	}
+	if base.Metrics.TreeDepth > next.Metrics.TreeDepth {
+		next.Metrics.TreeDepth = base.Metrics.TreeDepth
+	}
+	if base.DepthPartial {
+		next.DepthPartial = true
+	}
+	next.Unresolved = append(next.Unresolved, base.Unresolved...)
+	next.InheritedTargets = append(next.InheritedTargets, base.InheritedTargets...)
+	next.InheritedTargets = append(next.InheritedTargets, evidence)
+	next.ParentFindings = append(next.ParentFindings, base.ParentFindings...)
+
+	builder.summary = next
+	builder.dependencies[basePath.Canonical] = struct{}{}
+	for _, dependency := range base.Dependencies {
+		builder.dependencies[dependency] = struct{}{}
+	}
+	builder.unionResources(base.ExternalResources)
 
 	return nil
 }
@@ -839,6 +898,18 @@ func sortInheritedTargets(evidence []InheritedTarget) {
 		second := evidence[right]
 		if first.DeclaringScene != second.DeclaringScene {
 			return first.DeclaringScene < second.DeclaringScene
+		}
+		if first.BaseCanonical != second.BaseCanonical {
+			return first.BaseCanonical < second.BaseCanonical
+		}
+		if first.BaseRawTarget != second.BaseRawTarget {
+			return first.BaseRawTarget < second.BaseRawTarget
+		}
+		if first.BaseClassification != second.BaseClassification {
+			return first.BaseClassification < second.BaseClassification
+		}
+		if first.BaseResolutionReason != second.BaseResolutionReason {
+			return first.BaseResolutionReason < second.BaseResolutionReason
 		}
 		if first.TargetCanonical != second.TargetCanonical {
 			return first.TargetCanonical < second.TargetCanonical

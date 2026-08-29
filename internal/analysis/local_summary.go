@@ -43,7 +43,10 @@ func BuildLocalSummary(document *tscn.Document) (LocalSummary, error) {
 		resolveLocalDepth(index, states, pathIndex, &findings)
 	}
 
-	summary := LocalSummary{ExternalResources: resources}
+	summary := LocalSummary{
+		ExternalResources: resources,
+		HasEditable:       document.Features.HasEditable,
+	}
 	for index := range states {
 		addLocalState(&summary, states[index], index, resourcesByID)
 	}
