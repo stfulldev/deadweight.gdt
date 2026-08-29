@@ -15,6 +15,7 @@ type EvalSymlinksFunc func(path string) (string, error)
 // Resolver converts scene and resource references into canonical project paths.
 type Resolver struct {
 	projectRoot string
+	lexicalRoot string
 	stat        StatFunc
 	evalLinks   EvalSymlinksFunc
 }
@@ -89,6 +90,7 @@ func NewResolverWithFS(
 
 	return Resolver{
 		projectRoot: canonical,
+		lexicalRoot: candidate,
 		stat:        stat,
 		evalLinks:   evalLinks,
 	}, nil
@@ -305,7 +307,7 @@ func (resolver Resolver) resolveCandidate(original, rawCandidate string) Resolut
 			nil,
 		)
 	}
-	if _, inside := relativeWithin(resolver.projectRoot, candidate); !inside {
+	if !resolver.lexicallyContains(candidate) {
 		return unresolvedResolution(
 			ResolutionOutsideProject,
 			original,
@@ -375,6 +377,18 @@ func (resolver Resolver) resolveCandidate(original, rawCandidate string) Resolut
 			Original:  original,
 		},
 	}
+}
+
+func (resolver Resolver) lexicallyContains(target string) bool {
+	if _, inside := relativeWithin(resolver.projectRoot, target); inside {
+		return true
+	}
+	if resolver.lexicalRoot == "" {
+		return false
+	}
+
+	_, inside := relativeWithin(resolver.lexicalRoot, target)
+	return inside
 }
 
 func (resolver Resolver) resolveMissingCandidate(
