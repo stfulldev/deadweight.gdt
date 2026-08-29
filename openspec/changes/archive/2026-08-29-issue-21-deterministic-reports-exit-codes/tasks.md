@@ -18,4 +18,4 @@
 ## 4. Verification
 
 - [x] 4.1 Run focused report/CLI tests and golden comparisons, and verify complete, lower-bound, approximate, pass, fail, incomplete, preset, coded-error, and no-color states are covered
-- [ ] 4.2 Run `gofmt`, `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, pinned golangci-lint v2.12.0, and strict OpenSpec validation, and verify all tasks and gates pass
+- [x] 4.2 Run `gofmt`, `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, pinned golangci-lint v2.12.0, and strict OpenSpec validation, and verify all tasks and gates pass
