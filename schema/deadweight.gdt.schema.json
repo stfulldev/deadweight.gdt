@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "preset": { "$ref": "#/$defs/id" },
+    "profile": { "$ref": "#/$defs/id" },
+    "fail_on_partial": { "type": "boolean", "default": false },
+    "budgets": { "$ref": "#/$defs/budgets" },
+    "profiles": {
+      "type": "object",
+      "default": {},
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9._-]{0,63}$": { "$ref": "#/$defs/profile" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "not": { "required": ["preset", "profile"] },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "tree_depth": { "type": "integer", "minimum": 0 },
+        "scene_instances": { "type": "integer", "minimum": 0 },
+        "mesh_instances": { "type": "integer", "minimum": 0 },
+        "lights": { "type": "integer", "minimum": 0 },
+        "shadow_lights": { "type": "integer", "minimum": 0 },
+        "external_resources": { "type": "integer", "minimum": 0 },
+        "scene_dependencies": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "extends": { "$ref": "#/$defs/id" },
+        "platform": { "type": "string", "minLength": 1 },
+        "renderer": {
+          "type": "string",
+          "enum": ["forward_plus", "mobile", "compatibility", "unspecified"]
+        },
+        "target_fps": { "type": "integer", "minimum": 0 },
+        "quality": {
+          "type": "string",
+          "enum": ["low", "balanced", "high", "custom"]
+        },
+        "budgets": { "$ref": "#/$defs/budgets" }
+      }
+    }
+  }
+}
