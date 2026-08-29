@@ -137,27 +137,45 @@ func acceptancePaths(t *testing.T) (string, string) {
 
 func acceptanceSnapshot(t *testing.T, root string, exitCode int, stdout, stderr string) string {
 	t.Helper()
-	normalize := func(output string) string {
-		paths := []string{filepath.Clean(root), filepath.ToSlash(filepath.Clean(root))}
-		if canonical, err := filepath.EvalSymlinks(root); err == nil {
-			paths = append(paths, filepath.Clean(canonical), filepath.ToSlash(filepath.Clean(canonical)))
-		}
-		for _, path := range paths {
-			if path != "" {
-				output = strings.ReplaceAll(output, path, "<PROJECT>")
-			}
-		}
-		output = strings.ReplaceAll(output, `\`, "/")
-		if strings.Contains(output, filepath.Clean(root)) || strings.Contains(output, filepath.ToSlash(filepath.Clean(root))) {
-			t.Fatalf("snapshot leaked fixture root: %q", output)
-		}
-		return output
-	}
 
 	return fmt.Sprintf(
 		"exit: %d\n\n[stdout]\n%s[stderr]\n%s",
 		exitCode,
-		normalize(stdout),
-		normalize(stderr),
+		normalizeAcceptanceOutput(t, root, stdout),
+		normalizeAcceptanceOutput(t, root, stderr),
 	)
+}
+
+func normalizeAcceptanceOutput(t *testing.T, root, output string) string {
+	t.Helper()
+	paths := []string{filepath.Clean(root), filepath.ToSlash(filepath.Clean(root))}
+	if canonical, err := filepath.EvalSymlinks(root); err == nil {
+		paths = append(paths, filepath.Clean(canonical), filepath.ToSlash(filepath.Clean(canonical)))
+	}
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		escaped := strings.ReplaceAll(path, `\`, `\\`)
+		output = strings.ReplaceAll(output, escaped, "<PROJECT>")
+		output = strings.ReplaceAll(output, path, "<PROJECT>")
+	}
+	output = strings.ReplaceAll(output, `\\`, "/")
+	output = strings.ReplaceAll(output, `\`, "/")
+	for _, path := range paths {
+		if strings.Contains(output, path) || strings.Contains(output, strings.ReplaceAll(path, `\`, `\\`)) {
+			t.Fatalf("snapshot leaked fixture root: %q", output)
+		}
+	}
+	return output
+}
+
+func TestNormalizeAcceptanceOutputWindowsQuotedPath(t *testing.T) {
+	root := `D:\a\deadweight.gdt\deadweight.gdt\testdata\projects\malformed`
+	output := `ERROR: invalid configuration "D:\\a\\deadweight.gdt\\deadweight.gdt\\testdata\\projects\\malformed\\invalid-config.json"`
+	want := `ERROR: invalid configuration "<PROJECT>/invalid-config.json"`
+
+	if got := normalizeAcceptanceOutput(t, root, output); got != want {
+		t.Fatalf("normalizeAcceptanceOutput() = %q, want %q", got, want)
+	}
 }
