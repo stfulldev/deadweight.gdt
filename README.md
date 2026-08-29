@@ -23,6 +23,11 @@ The TSCN parser and recursive scene analyzer are the next implementation milesto
 
 The implementation contract is documented in [docs/MVP_0.1_SPEC.md](docs/MVP_0.1_SPEC.md).
 
+Contributor changes use a lightweight
+[OpenSpec + Codex workflow](docs/SPEC_DRIVEN_WORKFLOW.md) alongside GitHub Issues
+and Draft PRs. OpenSpec is development-only and is not required to build or run
+the Go CLI.
+
 ## Try the current slice
 
 Requirements: Go 1.24 or newer.
