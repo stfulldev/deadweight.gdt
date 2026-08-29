@@ -24,6 +24,7 @@ func TestResolveCandidateContainmentAndSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
+	canonicalInsideFile := evalResolverTestPath(t, insideFile)
 
 	tests := []struct {
 		name      string
@@ -35,7 +36,7 @@ func TestResolveCandidateContainmentAndSymlinks(t *testing.T) {
 			name:      "existing inside",
 			candidate: insideFile,
 			reason:    ResolutionResolved,
-			canonical: insideFile,
+			canonical: canonicalInsideFile,
 		},
 		{
 			name:      "lexical parent escape",
@@ -100,7 +101,7 @@ func TestResolveCandidateContainmentAndSymlinks(t *testing.T) {
 				name:      "existing safe symlink",
 				candidate: filepath.Join(safeLink, "inside.tres"),
 				reason:    ResolutionResolved,
-				canonical: insideFile,
+				canonical: canonicalInsideFile,
 			},
 			{
 				name:      "existing escaping symlink",
@@ -198,4 +199,15 @@ func writeResolverTestFile(t *testing.T, path string) {
 	if err := os.WriteFile(path, []byte("fixture"), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", path, err)
 	}
+}
+
+func evalResolverTestPath(t *testing.T, path string) string {
+	t.Helper()
+
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q) error = %v", path, err)
+	}
+
+	return filepath.Clean(canonical)
 }

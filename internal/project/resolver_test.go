@@ -21,8 +21,10 @@ func TestNewResolverCanonicalRootAndDisplayPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
-	if resolver.ProjectRoot() != root {
-		t.Fatalf("ProjectRoot() = %q, want %q", resolver.ProjectRoot(), root)
+	canonicalRoot := mustEvalSymlinks(t, root)
+	canonicalNested := mustEvalSymlinks(t, nested)
+	if resolver.ProjectRoot() != canonicalRoot {
+		t.Fatalf("ProjectRoot() = %q, want %q", resolver.ProjectRoot(), canonicalRoot)
 	}
 
 	tests := []struct {
@@ -30,12 +32,12 @@ func TestNewResolverCanonicalRootAndDisplayPath(t *testing.T) {
 		path string
 		want string
 	}{
-		{name: "root", path: root, want: "res://"},
-		{name: "nested", path: nested, want: "res://scenes/nested/root.tscn"},
+		{name: "root", path: canonicalRoot, want: "res://"},
+		{name: "nested", path: canonicalNested, want: "res://scenes/nested/root.tscn"},
 		{name: "relative", path: filepath.Join("scenes", "root.tscn"), want: ""},
 		{
 			name: "non-clean",
-			path: root + string(filepath.Separator) + "scenes" + string(filepath.Separator) + ".." +
+			path: canonicalRoot + string(filepath.Separator) + "scenes" + string(filepath.Separator) + ".." +
 				string(filepath.Separator) + "scenes",
 			want: "",
 		},
@@ -99,6 +101,8 @@ func TestNewResolverCanonicalizesSymlinkedProjectRoot(t *testing.T) {
 	workspace := t.TempDir()
 	realRoot := filepath.Join(workspace, "real")
 	mustMkdirAll(t, realRoot)
+	realScene := filepath.Join(realRoot, "root.tscn")
+	mustWriteFile(t, realScene)
 	linkedRoot := filepath.Join(workspace, "linked")
 	if err := os.Symlink(realRoot, linkedRoot); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
@@ -108,8 +112,18 @@ func TestNewResolverCanonicalizesSymlinkedProjectRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
-	if resolver.ProjectRoot() != realRoot {
-		t.Fatalf("ProjectRoot() = %q, want %q", resolver.ProjectRoot(), realRoot)
+	canonicalRoot := mustEvalSymlinks(t, realRoot)
+	if resolver.ProjectRoot() != canonicalRoot {
+		t.Fatalf("ProjectRoot() = %q, want %q", resolver.ProjectRoot(), canonicalRoot)
+	}
+
+	linkedScene := filepath.Join(linkedRoot, "root.tscn")
+	resolved, err := resolver.ResolveSceneInput(linkedScene, "unused")
+	if err != nil {
+		t.Fatalf("ResolveSceneInput(%q) error = %v", linkedScene, err)
+	}
+	if resolved.Canonical != mustEvalSymlinks(t, realScene) || resolved.Original != linkedScene {
+		t.Fatalf("resolved = %#v", resolved)
 	}
 }
 
@@ -123,6 +137,7 @@ func TestResolveSceneInputSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
+	canonicalScene := mustEvalSymlinks(t, scene)
 
 	tests := []struct {
 		name  string
@@ -142,7 +157,7 @@ func TestResolveSceneInputSuccess(t *testing.T) {
 				t.Fatalf("ResolveSceneInput() error = %v", resolveErr)
 			}
 			want := project.ResolvedPath{
-				Canonical: scene,
+				Canonical: canonicalScene,
 				Display:   "res://scenes/root.tscn",
 				Original:  test.input,
 			}
@@ -256,13 +271,18 @@ func TestResolveResourceSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
+	canonicalDeclaringScene := mustEvalSymlinks(t, declaringScene)
+	for raw, target := range targets {
+		targets[raw] = mustEvalSymlinks(t, target)
+	}
+	targets[absoluteRaw] = mustEvalSymlinks(t, absoluteRaw)
 	for raw, canonical := range targets {
 		raw := raw
 		canonical := canonical
 		t.Run(filepath.Base(canonical), func(t *testing.T) {
 			t.Parallel()
 
-			resolution := resolver.ResolveResource(declaringScene, raw)
+			resolution := resolver.ResolveResource(canonicalDeclaringScene, raw)
 			if !resolution.Resolved() {
 				t.Fatalf("ResolveResource() = %#v", resolution)
 			}
@@ -294,23 +314,24 @@ func TestResolveResourceUnresolvedClassifications(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResolver() error = %v", err)
 	}
+	canonicalDeclaringScene := mustEvalSymlinks(t, declaringScene)
 	tests := []struct {
 		name      string
 		fromScene string
 		raw       string
 		reason    project.ResolutionReason
 	}{
-		{name: "empty", fromScene: declaringScene, raw: "", reason: project.ResolutionEmpty},
-		{name: "uid", fromScene: declaringScene, raw: "uid://abc", reason: project.ResolutionUIDOnly},
-		{name: "user data", fromScene: declaringScene, raw: "user://save.dat", reason: project.ResolutionUserData},
-		{name: "unknown scheme", fromScene: declaringScene, raw: "https://example.test/file", reason: project.ResolutionUnsupportedTarget},
-		{name: "missing", fromScene: declaringScene, raw: "missing.tres", reason: project.ResolutionMissing},
-		{name: "non regular", fromScene: declaringScene, raw: nonRegular, reason: project.ResolutionUnsupportedTarget},
-		{name: "outside", fromScene: declaringScene, raw: outside, reason: project.ResolutionOutsideProject},
+		{name: "empty", fromScene: canonicalDeclaringScene, raw: "", reason: project.ResolutionEmpty},
+		{name: "uid", fromScene: canonicalDeclaringScene, raw: "uid://abc", reason: project.ResolutionUIDOnly},
+		{name: "user data", fromScene: canonicalDeclaringScene, raw: "user://save.dat", reason: project.ResolutionUserData},
+		{name: "unknown scheme", fromScene: canonicalDeclaringScene, raw: "https://example.test/file", reason: project.ResolutionUnsupportedTarget},
+		{name: "missing", fromScene: canonicalDeclaringScene, raw: "missing.tres", reason: project.ResolutionMissing},
+		{name: "non regular", fromScene: canonicalDeclaringScene, raw: nonRegular, reason: project.ResolutionUnsupportedTarget},
+		{name: "outside", fromScene: canonicalDeclaringScene, raw: outside, reason: project.ResolutionOutsideProject},
 		{name: "relative declaring scene", fromScene: "scenes/root.tscn", raw: "local.tres", reason: project.ResolutionInvalidDeclaringScene},
 		{
 			name:      "non clean declaring scene",
-			fromScene: filepath.Dir(declaringScene) + string(filepath.Separator) + ".." + string(filepath.Separator) + "scenes" + string(filepath.Separator) + "root.tscn",
+			fromScene: filepath.Dir(canonicalDeclaringScene) + string(filepath.Separator) + ".." + string(filepath.Separator) + "scenes" + string(filepath.Separator) + "root.tscn",
 			raw:       "local.tres",
 			reason:    project.ResolutionInvalidDeclaringScene,
 		},
@@ -431,4 +452,15 @@ func assertResolveError(
 	}
 
 	return resolveError
+}
+
+func mustEvalSymlinks(t *testing.T, path string) string {
+	t.Helper()
+
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q) error = %v", path, err)
+	}
+
+	return filepath.Clean(canonical)
 }
