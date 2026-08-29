@@ -1,0 +1,60 @@
+schema: spec-driven
+
+context: |
+  Project: deadweight.gdt, a standalone Go-first CLI for static analysis of
+  Godot 4 format-3 .tscn scenes. The shipped binary must not require Node.js,
+  OpenSpec, Godot, an MCP server, or network access.
+
+  Product source of truth: docs/MVP_0.1_SPEC.md. Its section 36 decisions are
+  frozen for MVP 0.1 unless a separately reviewed decision explicitly changes
+  them. The GitHub MVP tracker is
+  https://github.com/stfulldev/deadweight.gdt/issues/24.
+
+  Architecture: Go 1.24+, a thin cmd/deadweight.gdt composition root, and small
+  internal packages with parser, filesystem, analysis, budget, config, report,
+  and CLI concerns kept separate. The TSCN parser must use a streaming lexer and
+  parser state machine, not a collection of regular expressions.
+
+  Quality gates: go test ./..., go test -race ./..., go vet ./..., and
+  golangci-lint must pass. User-visible output and diagnostics must be
+  deterministic. The analyzer must report unsupported static data honestly as
+  PARTIAL instead of claiming false precision.
+
+  Delivery workflow: create a GitHub Issue first, then a focused branch and
+  linked Draft PR. Create and review the OpenSpec proposal before applying it.
+  Keep one OpenSpec change per Issue. Verify the implementation, archive the
+  change, and only then mark the PR ready to merge.
+
+  Language: English. Keep OpenSpec structural headings and SHALL/MUST keywords
+  in English. Existing Russian discussion context does not change artifact
+  language.
+
+rules:
+  proposal:
+    - Reference the GitHub Issue and linked Draft PR.
+    - State goals, non-goals, compatibility impact, and affected MVP acceptance criteria.
+    - Do not duplicate the full MVP specification; describe only the proposed delta.
+  specs:
+    - Use SHALL or MUST for normative requirements.
+    - Give each requirement at least one concrete WHEN/THEN scenario.
+    - Preserve the metric semantics and frozen decisions in docs/MVP_0.1_SPEC.md.
+  design:
+    - Record package boundaries, failure behavior, and rejected alternatives when relevant.
+    - Keep OpenSpec and Node.js out of the shipped Go binary and runtime dependency graph.
+  tasks:
+    - Order work as independently verifiable vertical slices.
+    - Include targeted tests and the relevant repository quality gates.
+    - Keep tasks within the linked Issue and Draft PR scope.
+
+operations:
+  apply:
+    guidance:
+      - Apply only after the proposal artifacts have been reviewed.
+      - Work on the branch linked to the Issue and keep the PR in draft until verification passes.
+      - Run targeted tests after each slice, then the full applicable quality gates.
+      - Never introduce a Godot runtime dependency for MVP 0.1.
+  archive:
+    guidance:
+      - Archive only after every task and acceptance criterion is verified.
+      - Ensure the archived specs describe shipped behavior rather than implementation intent.
+      - Include the Issue, PR, and validation result in the final summary.
