@@ -23,6 +23,23 @@ func TestVersion(t *testing.T) {
 	}
 }
 
+func TestRootHelp(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := cli.Execute([]string{"--help"}, &stdout, &stderr, cli.BuildInfo{Version: "test"})
+
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
+	}
+	for _, fragment := range []string{"inspect", "check", "presets", "--version"} {
+		if !strings.Contains(stdout.String(), fragment) {
+			t.Errorf("help does not contain %q:\n%s", fragment, stdout.String())
+		}
+	}
+}
+
 func TestPresetsShowSteamDeck(t *testing.T) {
 	t.Parallel()
 

@@ -1,5 +1,7 @@
 package metrics
 
+import "fmt"
+
 // Name is a stable metric identifier used by configuration, budgets, and reports.
 type Name string
 
@@ -14,26 +16,21 @@ const (
 	SceneDependencies Name = "scene_dependencies"
 )
 
-var orderedNames = [...]Name{
-	Nodes,
-	TreeDepth,
-	SceneInstances,
-	MeshInstances,
-	Lights,
-	ShadowLights,
-	ExternalResources,
-	SceneDependencies,
+// Definition describes one metric in canonical report order.
+type Definition struct {
+	Name  Name
+	Label string
 }
 
-var labels = map[Name]string{
-	Nodes:             "Nodes",
-	TreeDepth:         "Tree depth",
-	SceneInstances:    "Scene instances",
-	MeshInstances:     "Mesh instances",
-	Lights:            "Lights",
-	ShadowLights:      "Shadow lights",
-	ExternalResources: "External resources",
-	SceneDependencies: "Scene dependencies",
+var definitions = [...]Definition{
+	{Name: Nodes, Label: "Nodes"},
+	{Name: TreeDepth, Label: "Tree depth"},
+	{Name: SceneInstances, Label: "Scene instances"},
+	{Name: MeshInstances, Label: "Mesh instances"},
+	{Name: Lights, Label: "Lights"},
+	{Name: ShadowLights, Label: "Shadow lights"},
+	{Name: ExternalResources, Label: "External resources"},
+	{Name: SceneDependencies, Label: "Scene dependencies"},
 }
 
 // Values contains the eight metrics defined by the MVP 0.1 contract.
@@ -48,23 +45,48 @@ type Values struct {
 	SceneDependencies int64 `json:"scene_dependencies"`
 }
 
+// ValueError reports a metric value that violates the domain contract.
+type ValueError struct {
+	Name  Name
+	Value int64
+}
+
+func (err *ValueError) Error() string {
+	return fmt.Sprintf("metric %q must be non-negative, got %d", err.Name, err.Value)
+}
+
+// Catalog returns a defensive copy of the metric definitions in canonical order.
+func Catalog() []Definition {
+	catalog := make([]Definition, len(definitions))
+	copy(catalog, definitions[:])
+
+	return catalog
+}
+
 // OrderedNames returns a defensive copy in the canonical report order.
 func OrderedNames() []Name {
-	names := make([]Name, len(orderedNames))
-	copy(names, orderedNames[:])
+	names := make([]Name, 0, len(definitions))
+	for _, definition := range definitions {
+		names = append(names, definition.Name)
+	}
 
 	return names
 }
 
 // Label returns the human-readable console label for a metric.
 func (name Name) Label() string {
-	return labels[name]
+	for _, definition := range definitions {
+		if definition.Name == name {
+			return definition.Label
+		}
+	}
+
+	return ""
 }
 
 // Valid reports whether name is part of the MVP metric catalog.
 func (name Name) Valid() bool {
-	_, ok := labels[name]
-	return ok
+	return name.Label() != ""
 }
 
 // Get returns a metric value by its stable identifier.
@@ -89,4 +111,16 @@ func (values Values) Get(name Name) (int64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// Validate checks that every metric value satisfies the MVP domain contract.
+func (values Values) Validate() error {
+	for _, definition := range definitions {
+		value, _ := values.Get(definition.Name)
+		if value < 0 {
+			return &ValueError{Name: definition.Name, Value: value}
+		}
+	}
+
+	return nil
 }
