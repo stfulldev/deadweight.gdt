@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 	application "github.com/stfulldev/deadweight.gdt/internal/app"
 	"github.com/stfulldev/deadweight.gdt/internal/budget"
-	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
+	"github.com/stfulldev/deadweight.gdt/internal/report"
 )
 
 // BuildInfo contains values injected at build time.
@@ -28,6 +29,14 @@ type globalOptions struct {
 	project string
 	config  string
 	noColor bool
+	version string
+	runtime PresentationRuntime
+}
+
+// PresentationRuntime contains environment effects used only for color policy.
+type PresentationRuntime struct {
+	LookupEnv  func(string) (string, bool)
+	IsTerminal func(io.Writer) bool
 }
 
 type exitSignal struct {
@@ -50,7 +59,26 @@ func ExecuteWithApplication(
 	info BuildInfo,
 	service Application,
 ) int {
-	return execute(NewRootWithApplication(info, service), args, stdout, stderr)
+	return ExecuteWithApplicationAndRuntime(
+		args,
+		stdout,
+		stderr,
+		info,
+		service,
+		PresentationRuntime{},
+	)
+}
+
+// ExecuteWithApplicationAndRuntime runs the CLI with injected application and
+// presentation environment effects.
+func ExecuteWithApplicationAndRuntime(
+	args []string,
+	stdout, stderr io.Writer,
+	info BuildInfo,
+	service Application,
+	runtime PresentationRuntime,
+) int {
+	return execute(NewRootWithApplicationAndRuntime(info, service, runtime), args, stdout, stderr)
 }
 
 func execute(root *cobra.Command, args []string, stdout, stderr io.Writer) int {
@@ -63,11 +91,7 @@ func execute(root *cobra.Command, args []string, stdout, stderr io.Writer) int {
 		if errors.As(err, &signal) {
 			return signal.code
 		}
-		if code, ok := diagnostic.CodeOf(err); ok {
-			_, _ = fmt.Fprintf(stderr, "ERROR %s: %s\n", code, diagnostic.MessageOf(err))
-		} else {
-			_, _ = fmt.Fprintf(stderr, "ERROR: %v\n", err)
-		}
+		_, _ = fmt.Fprint(stderr, report.Error(err))
 		return 2
 	}
 
@@ -81,10 +105,20 @@ func NewRoot(info BuildInfo) *cobra.Command {
 
 // NewRootWithApplication constructs a fresh command tree with injected flows.
 func NewRootWithApplication(info BuildInfo, service Application) *cobra.Command {
+	return NewRootWithApplicationAndRuntime(info, service, PresentationRuntime{})
+}
+
+// NewRootWithApplicationAndRuntime constructs a fresh command tree with all
+// application and presentation effects injected.
+func NewRootWithApplicationAndRuntime(
+	info BuildInfo,
+	service Application,
+	runtime PresentationRuntime,
+) *cobra.Command {
 	if service == nil {
 		service = application.NewDefault()
 	}
-	options := &globalOptions{}
+	options := &globalOptions{version: info.Version, runtime: normalizePresentationRuntime(runtime)}
 	root := &cobra.Command{
 		Use:           "deadweight.gdt",
 		Short:         "Static scene-complexity budgets for Godot 4 text scenes",
@@ -103,10 +137,43 @@ func NewRootWithApplication(info BuildInfo, service Application) *cobra.Command 
 	root.AddCommand(
 		newInspectCommand(service, options),
 		newCheckCommand(service, options),
-		newPresetsCommand(service),
+		newPresetsCommand(service, options),
 	)
 
 	return root
+}
+
+func normalizePresentationRuntime(runtime PresentationRuntime) PresentationRuntime {
+	if runtime.LookupEnv == nil {
+		runtime.LookupEnv = os.LookupEnv
+	}
+	if runtime.IsTerminal == nil {
+		runtime.IsTerminal = isTerminalWriter
+	}
+
+	return runtime
+}
+
+func isTerminalWriter(writer io.Writer) bool {
+	file, ok := writer.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+func (options *globalOptions) reportOptions(writer io.Writer) report.Options {
+	color := !options.noColor && options.runtime.IsTerminal(writer)
+	if _, present := options.runtime.LookupEnv("NO_COLOR"); present {
+		color = false
+	}
+
+	return report.Options{Version: options.version, Color: color}
 }
 
 func exitForEvaluation(status budget.Status) error {
