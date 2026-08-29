@@ -5,3 +5,8 @@
 /.vscode/
 .DS_Store
 *.exe
+
+# Keep repository-local agent skills, but ignore any future local agent state.
+/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
