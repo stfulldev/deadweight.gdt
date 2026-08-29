@@ -226,7 +226,7 @@ func TestDefaultApplicationFixtureFailuresAreCoded(t *testing.T) {
 		name, scene, message string
 	}{
 		{name: "format two", scene: "format2.tscn", message: "unsupported Godot scene format 2"},
-		{name: "unclosed string", scene: "unclosed-string.tscn", message: "unescaped newline in string"},
+		{name: "unclosed string", scene: "unclosed-string.tscn", message: "unterminated string"},
 		{name: "invalid external resource id", scene: "bad-ext-id.tscn", message: "must be a scalar"},
 	} {
 		test := test

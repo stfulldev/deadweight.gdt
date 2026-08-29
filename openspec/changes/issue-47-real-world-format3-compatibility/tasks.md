@@ -18,6 +18,6 @@
 
 ## 4. Quality Gates and Delivery
 
-- [ ] 4.1 Run `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and golangci-lint v2.12.0; verify every repository-controlled gate passes on the implementation commit.
+- [x] 4.1 Run `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, and golangci-lint v2.12.0; verify every repository-controlled gate passes on the implementation commit.
 - [ ] 4.2 Run strict OpenSpec validation, verify every issue #47 acceptance criterion and task, sync the delta specs, and archive `issue-47-real-world-format3-compatibility`; verify the archived capability specs describe shipped behavior.
 - [ ] 4.3 Commit the archive result separately, push every commit, update Draft PR #48 with exact unit/E2E/gate evidence, and mark it ready only after the remote head and local verified head match.
