@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"fmt"
-
 	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
 	"github.com/stfulldev/deadweight.gdt/internal/tscn"
@@ -101,20 +99,4 @@ type ExpandedSummary struct {
 	InheritedTargets  []InheritedTarget
 	ParentFindings    []SceneParentFinding
 	DepthPartial      bool
-}
-
-// RecursiveReferenceError is the invocation-local safety signal used before
-// the dependency-graph layer adds user-facing cycle chains and SB2002.
-type RecursiveReferenceError struct {
-	Canonical string
-	Display   string
-}
-
-func (err *RecursiveReferenceError) Error() string {
-	identity := err.Display
-	if identity == "" {
-		identity = err.Canonical
-	}
-
-	return fmt.Sprintf("recursive scene reference encountered while expanding %q", identity)
 }
