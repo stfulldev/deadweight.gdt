@@ -33,7 +33,7 @@ Status meanings:
 | 22 | Console output is deterministic and ANSI-free in snapshots | `TestAcceptanceGoldens`, `TestReportGoldens`, `TestColorPolicyUsesTerminalAndBothSuppressionInputs` | Verified |
 | 23 | Build, tests, race tests, and vet pass | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs every command on Linux, macOS, and Windows; local commands are listed below | Verified locally; CI runner execution required |
 | 24 | CLI neither finds nor requires a Godot executable | `TestDefaultApplicationInspectsAndChecksTextSceneWithoutGodot`, fixture suite and CI contain no Godot setup | Verified |
-| 25 | README contains required positioning and disclaimers | GitHub issue [#23](https://github.com/stfulldev/deadweight.gdt/issues/23), `MVP_0.1_SPEC.md` §33 | Tracked in release hardening |
+| 25 | README contains required positioning and disclaimers | [`README.md`](../README.md) sections “What and why”, “Complete vs partial”, “Supported and unsupported Godot inputs”, and “Presets and custom profiles”; GitHub issue [#23](https://github.com/stfulldev/deadweight.gdt/issues/23) | Verified |
 
 ## Verification commands
 
