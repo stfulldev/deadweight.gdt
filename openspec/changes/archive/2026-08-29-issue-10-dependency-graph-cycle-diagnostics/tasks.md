@@ -43,4 +43,4 @@
 
 - [x] 7.1 Run focused graph tests plus `go test ./...`, `go test -race ./...`, `go vet ./...`, and CI-pinned golangci-lint v2.12.0; verify every gate passes on deterministic no-Godot inputs.
 - [x] 7.2 Commit only `*_test.go` files and OpenSpec task-progress updates as `test: cover scene dependency graph`, preserving the preceding production feature commit; verify the commits remain independently reviewable.
-- [ ] 7.3 Run `openspec validate issue-10-dependency-graph-cycle-diagnostics --strict` and `git diff --check`, inspect Draft PR #35 through the GitHub connector, and verify its diff stays limited to issue #10 planning, graph/recursive analysis production, and tests with final metrics/CLI/report/budget/inherited aggregation absent.
+- [x] 7.3 Run `openspec validate issue-10-dependency-graph-cycle-diagnostics --strict` and `git diff --check`, inspect Draft PR #35 through the GitHub connector, and verify its diff stays limited to issue #10 planning, graph/recursive analysis production, and tests with final metrics/CLI/report/budget/inherited aggregation absent.
