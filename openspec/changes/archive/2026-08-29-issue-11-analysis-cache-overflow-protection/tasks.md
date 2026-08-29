@@ -41,4 +41,4 @@
 
 - [x] 7.1 Run focused cache/graph/recursive tests plus `go test ./...`, `go test -race ./...`, `go vet ./...`, and CI-pinned golangci-lint v2.12.0; verify all deterministic gates pass on Linux-compatible no-Godot fixtures.
 - [x] 7.2 Commit only `*_test.go` files and OpenSpec task-progress updates as `test: cover analysis cache integrity`, preserving the preceding production feature commit; verify both commits remain independently reviewable.
-- [ ] 7.3 Run `openspec validate issue-11-analysis-cache-overflow-protection --strict` and `git diff --check`, inspect Draft PR #36 through the GitHub connector, and verify its diff stays limited to #11 planning, `internal/analysis` cache/effect/result production, and tests with later MVP layers absent.
+- [x] 7.3 Run `openspec validate issue-11-analysis-cache-overflow-protection --strict` and `git diff --check`, inspect Draft PR #36 through the GitHub connector, and verify its diff stays limited to #11 planning, `internal/analysis` cache/effect/result production, and tests with later MVP layers absent.
