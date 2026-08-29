@@ -15,11 +15,12 @@ The initial repository slice currently provides:
 
 - the Go module and CLI entry point;
 - stable metric and budget domain types;
+- a streaming Godot 4 TSCN subset lexer and parser with source-aware errors;
 - the experimental built-in presets `mobile`, `steam-deck`, and `desktop`;
 - working `presets` and `presets show` commands;
 - unit tests and a cross-platform CI skeleton.
 
-The TSCN parser and recursive scene analyzer are the next implementation milestones. `inspect` and `check` are present in CLI help but intentionally return a clear not-implemented error until their vertical slices land.
+Project-root/path resolution and the recursive scene analyzer are the next implementation milestones. `inspect` and `check` are present in CLI help but intentionally return a clear not-implemented error until their vertical slices land.
 
 The implementation contract is documented in [docs/MVP_0.1_SPEC.md](docs/MVP_0.1_SPEC.md).
 
