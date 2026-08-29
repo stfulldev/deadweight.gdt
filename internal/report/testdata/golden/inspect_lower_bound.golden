@@ -1,0 +1,36 @@
+deadweight.gdt 0.1.0
+
+Scene:     res://levels/city.tscn
+Project:   <PROJECT>
+Analysis:  PARTIAL
+Accuracy:  lower bound
+
+Structure
+  Nodes                          2,841+
+  Tree depth                        17+
+  Scene instances                  184+
+  Scene dependencies                12+
+
+Rendering
+  Mesh instances                 1,024+
+  Lights                            43+
+  Shadow lights                      9+
+
+Resources
+  External resources               218+
+
+Coverage
+  Parsed scene files                 13
+  Resolved scene instances          179
+  Unresolved scene instances          5
+
+Unresolved scene instances
+  res://models/car.glb               ×3    imported PackedScene
+  res://models/tree.glb              ×2    imported PackedScene
+
+Diagnostics
+  WARNING SB1002 res://models/car.glb: imported PackedScene cannot be expanded statically ×3
+  WARNING SB1002 res://models/tree.glb: imported PackedScene cannot be expanded statically ×2
+
+WARNING: Expanded metrics are partial. Values marked with + are known
+lower bounds because 5 scene instances could not be analyzed statically.

@@ -1,0 +1,19 @@
+Preset:      Steam Deck
+ID:          steam-deck
+Status:      heuristic
+Stability:   experimental
+Renderer:    Forward+
+Target FPS:  60
+Quality:     Balanced
+
+Budgets
+  Nodes                         3,000
+  Tree depth                       20
+  Scene instances                 250
+  Mesh instances                1,000
+  Lights                           32
+  Shadow lights                     8
+  External resources              300
+  Scene dependencies               80
+
+This preset is a starting guardrail, not a performance guarantee.

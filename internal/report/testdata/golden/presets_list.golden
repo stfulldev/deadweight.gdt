@@ -1,0 +1,15 @@
+Built-in presets (heuristic, experimental)
+
+mobile
+  Mobile-class 3D hardware
+  Renderer: Mobile · Target: 30 FPS · Quality: Low
+
+steam-deck
+  Steam Deck-class hardware
+  Renderer: Forward+ · Target: 60 FPS · Quality: Balanced
+
+desktop
+  Mid-range desktop hardware
+  Renderer: Forward+ · Target: 60 FPS · Quality: High
+
+Use `deadweight.gdt presets show <id>` to see budgets.
