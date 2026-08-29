@@ -91,6 +91,14 @@ func execute(root *cobra.Command, args []string, stdout, stderr io.Writer) int {
 		if errors.As(err, &signal) {
 			return signal.code
 		}
+		var failure *presentationError
+		if errors.As(err, &failure) && failure.format == presentationJSON {
+			rendered, renderErr := report.ErrorJSON(failure.err, failure.options)
+			if renderErr == nil {
+				_, _ = fmt.Fprint(stderr, rendered)
+				return 2
+			}
+		}
 		_, _ = fmt.Fprint(stderr, report.Error(err))
 		return 2
 	}

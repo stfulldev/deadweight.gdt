@@ -11,29 +11,40 @@ import (
 )
 
 func newInspectCommand(service Application, global *globalOptions) *cobra.Command {
-	return &cobra.Command{
+	formatValue := string(presentationText)
+	command := &cobra.Command{
 		Use:   "inspect <scene>",
 		Short: "Inspect effective scene metrics",
-		Args:  cobra.ExactArgs(1),
+		Args:  sceneArguments(&formatValue),
 		RunE: func(command *cobra.Command, args []string) error {
+			format, _ := parsePresentationFormat(formatValue)
+			options := global.reportOptions(command.OutOrStdout())
 			result, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
 				Scene:   args[0],
 				Project: global.project,
 				Config:  global.config,
 			}})
 			if err != nil {
-				return err
+				return wrapPresentationError(err, format, options)
 			}
 
-			rendered, err := report.Inspect(result, global.reportOptions(command.OutOrStdout()))
+			var rendered string
+			if format == presentationJSON {
+				rendered, err = report.InspectJSON(result, options)
+			} else {
+				rendered, err = report.Inspect(result, options)
+			}
 			if err != nil {
-				return fmt.Errorf("render inspect report: %w", err)
+				return wrapPresentationError(fmt.Errorf("render inspect report: %w", err), format, options)
 			}
 
 			_, err = fmt.Fprint(command.OutOrStdout(), rendered)
-			return err
+			return wrapPresentationError(err, format, options)
 		},
 	}
+	command.Flags().StringVar(&formatValue, "format", string(presentationText), "output format: text or json")
+
+	return command
 }
 
 func newCheckCommand(service Application, global *globalOptions) *cobra.Command {
@@ -42,12 +53,15 @@ func newCheckCommand(service Application, global *globalOptions) *cobra.Command 
 	var budgetOverrides []string
 	var failOnPartial bool
 	var allowPartial bool
+	formatValue := string(presentationText)
 
 	command := &cobra.Command{
 		Use:   "check <scene>",
 		Short: "Check effective scene metrics against a budget",
-		Args:  cobra.ExactArgs(1),
+		Args:  sceneArguments(&formatValue),
 		RunE: func(command *cobra.Command, args []string) error {
+			format, _ := parsePresentationFormat(formatValue)
+			options := global.reportOptions(command.OutOrStdout())
 			partialOverride := budget.PartialInherit
 			if failOnPartial {
 				partialOverride = budget.PartialFail
@@ -70,15 +84,20 @@ func newCheckCommand(service Application, global *globalOptions) *cobra.Command 
 				PartialOverride: partialOverride,
 			})
 			if err != nil {
-				return err
+				return wrapPresentationError(err, format, options)
 			}
 
-			rendered, err := report.Check(result, global.reportOptions(command.OutOrStdout()))
+			var rendered string
+			if format == presentationJSON {
+				rendered, err = report.CheckJSON(result, options)
+			} else {
+				rendered, err = report.Check(result, options)
+			}
 			if err != nil {
-				return fmt.Errorf("render check report: %w", err)
+				return wrapPresentationError(fmt.Errorf("render check report: %w", err), format, options)
 			}
 			if _, err := fmt.Fprint(command.OutOrStdout(), rendered); err != nil {
-				return err
+				return wrapPresentationError(err, format, options)
 			}
 
 			return exitForEvaluation(result.Evaluation.Status)
@@ -89,6 +108,7 @@ func newCheckCommand(service Application, global *globalOptions) *cobra.Command 
 	command.Flags().StringArrayVar(&budgetOverrides, "budget", nil, "final METRIC=LIMIT override (repeatable)")
 	command.Flags().BoolVar(&failOnPartial, "fail-on-partial", false, "return exit 3 for partial analysis")
 	command.Flags().BoolVar(&allowPartial, "allow-partial", false, "allow partial analysis regardless of config")
+	command.Flags().StringVar(&formatValue, "format", string(presentationText), "output format: text or json")
 	command.MarkFlagsMutuallyExclusive("preset", "profile")
 	command.MarkFlagsMutuallyExclusive("fail-on-partial", "allow-partial")
 

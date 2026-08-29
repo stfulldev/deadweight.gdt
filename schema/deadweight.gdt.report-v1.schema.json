@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stfulldev/deadweight.gdt/schema/deadweight.gdt.report-v1.schema.json",
+  "title": "deadweight.gdt report schema version 1",
+  "type": "object",
+  "required": ["schema_version", "kind", "tool"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "enum": ["inspect", "check", "error"] },
+    "tool": { "$ref": "#/$defs/tool" },
+    "scene": { "$ref": "#/$defs/scene" },
+    "configuration": { "$ref": "#/$defs/configuration" },
+    "analysis": { "$ref": "#/$defs/analysis" },
+    "policy": { "$ref": "#/$defs/policy" },
+    "evaluation": { "$ref": "#/$defs/evaluation" },
+    "error": { "$ref": "#/$defs/error" }
+  },
+  "oneOf": [
+    {
+      "properties": { "kind": { "const": "inspect" } },
+      "required": ["scene", "configuration", "analysis"],
+      "not": {
+        "anyOf": [
+          { "required": ["policy"] },
+          { "required": ["evaluation"] },
+          { "required": ["error"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "check" } },
+      "required": ["scene", "configuration", "analysis", "policy", "evaluation"],
+      "not": { "required": ["error"] }
+    },
+    {
+      "properties": { "kind": { "const": "error" } },
+      "required": ["error"],
+      "not": {
+        "anyOf": [
+          { "required": ["scene"] },
+          { "required": ["configuration"] },
+          { "required": ["analysis"] },
+          { "required": ["policy"] },
+          { "required": ["evaluation"] }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "int64": {
+      "type": "integer",
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    },
+    "nonNegativeInt64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "deadweight.gdt" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^res://[^\\\\]*$"
+    },
+    "scene": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portablePath" }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "required": ["present", "selection"],
+      "properties": {
+        "present": { "type": "boolean" },
+        "selection": { "enum": ["absent", "implicit", "explicit"] },
+        "path": { "$ref": "#/$defs/portablePath" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "present": { "const": false } }, "required": ["present"] },
+          "then": {
+            "properties": { "selection": { "const": "absent" } },
+            "not": { "required": ["path"] }
+          }
+        },
+        {
+          "if": { "properties": { "present": { "const": true } }, "required": ["present"] },
+          "then": { "properties": { "selection": { "enum": ["implicit", "explicit"] } } }
+        }
+      ]
+    },
+    "metricName": {
+      "enum": [
+        "nodes",
+        "tree_depth",
+        "scene_instances",
+        "mesh_instances",
+        "lights",
+        "shadow_lights",
+        "external_resources",
+        "scene_dependencies"
+      ]
+    },
+    "metric": {
+      "type": "object",
+      "required": ["id", "value"],
+      "properties": {
+        "id": { "$ref": "#/$defs/metricName" },
+        "value": { "$ref": "#/$defs/nonNegativeInt64" }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "nodes" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "tree_depth" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "scene_instances" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "mesh_instances" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "lights" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "shadow_lights" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "external_resources" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/metric" }, { "properties": { "id": { "const": "scene_dependencies" } } }] }
+      ],
+      "items": false
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "parsed_scene_files",
+        "resolved_scene_instances",
+        "unresolved_scene_instances",
+        "inherited_scenes"
+      ],
+      "properties": {
+        "parsed_scene_files": { "$ref": "#/$defs/nonNegativeInt64" },
+        "resolved_scene_instances": { "$ref": "#/$defs/nonNegativeInt64" },
+        "unresolved_scene_instances": { "$ref": "#/$defs/nonNegativeInt64" },
+        "inherited_scenes": { "$ref": "#/$defs/nonNegativeInt64" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "$ref": "#/$defs/portablePath" },
+        "line": { "$ref": "#/$defs/nonNegativeInt64" },
+        "column": { "$ref": "#/$defs/nonNegativeInt64" }
+      }
+    },
+    "diagnosticCode": {
+      "enum": [
+        "SB1001", "SB1002", "SB1003", "SB1004", "SB1005", "SB1006",
+        "SB1007", "SB1008", "SB2001", "SB2002", "SB2003", "SB2004"
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "message", "occurrences"],
+      "properties": {
+        "code": { "$ref": "#/$defs/diagnosticCode" },
+        "severity": { "enum": ["warning", "error"] },
+        "message": { "type": "string", "minLength": 1 },
+        "occurrences": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "source": { "$ref": "#/$defs/source" },
+        "resource": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["status", "reliability", "metrics", "coverage", "diagnostics"],
+      "properties": {
+        "status": { "enum": ["complete", "partial"] },
+        "reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "metrics": { "$ref": "#/$defs/metrics" },
+        "coverage": { "$ref": "#/$defs/coverage" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+      }
+    },
+    "policyMetadata": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "platform": { "type": "string" },
+        "renderer": { "type": "string" },
+        "target_fps": { "$ref": "#/$defs/nonNegativeInt64" },
+        "quality": { "type": "string" },
+        "status": { "type": "string" },
+        "stability": { "type": "string" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["kind", "metadata", "fail_on_partial"],
+      "properties": {
+        "kind": { "enum": ["preset", "profile", "overrides"] },
+        "id": { "type": "string", "minLength": 1 },
+        "metadata": { "$ref": "#/$defs/policyMetadata" },
+        "fail_on_partial": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["preset", "profile"] } }, "required": ["kind"] },
+          "then": { "required": ["id"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "overrides" } }, "required": ["kind"] },
+          "then": { "not": { "required": ["id"] } }
+        }
+      ]
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["metric", "observed", "limit", "delta", "passed"],
+      "properties": {
+        "metric": { "$ref": "#/$defs/metricName" },
+        "observed": { "$ref": "#/$defs/nonNegativeInt64" },
+        "limit": { "$ref": "#/$defs/nonNegativeInt64" },
+        "delta": { "$ref": "#/$defs/int64" },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["comparisons", "exceeded", "verdict"],
+      "properties": {
+        "comparisons": { "type": "array", "items": { "$ref": "#/$defs/comparison" } },
+        "exceeded": { "$ref": "#/$defs/nonNegativeInt64" },
+        "verdict": { "enum": ["PASSED", "FAILED", "INCOMPLETE"] }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["severity", "message"],
+      "properties": {
+        "code": { "$ref": "#/$defs/diagnosticCode" },
+        "severity": { "const": "error" },
+        "message": { "type": "string", "minLength": 1 },
+        "details": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}
