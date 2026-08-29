@@ -1,8 +1,12 @@
 package tscn
 
-import "fmt"
+import (
+	"fmt"
 
-const invalidSceneCode = "SB2001"
+	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
+)
+
+const invalidSceneCode = diagnostic.CodeInvalidTSCNRoot
 
 // Position identifies a one-based source location.
 type Position struct {
@@ -12,13 +16,27 @@ type Position struct {
 
 // ParseError is a source-aware failure to parse the supported TSCN subset.
 type ParseError struct {
-	Code     string
+	Code     diagnostic.Code
 	Source   string
 	Position Position
 	Message  string
 }
 
 func (err *ParseError) Error() string {
+	return fmt.Sprintf("%s: %s: %s", err.location(), err.Code, err.Message)
+}
+
+// DiagnosticCode exposes the stable code without requiring message parsing.
+func (err *ParseError) DiagnosticCode() diagnostic.Code {
+	return err.Code
+}
+
+// DiagnosticMessage returns source-aware text without duplicating the code prefix.
+func (err *ParseError) DiagnosticMessage() string {
+	return fmt.Sprintf("%s: %s", err.location(), err.Message)
+}
+
+func (err *ParseError) location() string {
 	location := err.Source
 	if location == "" {
 		location = "<input>"
@@ -28,7 +46,7 @@ func (err *ParseError) Error() string {
 		location = fmt.Sprintf("%s:%d:%d", location, err.Position.Line, err.Position.Column)
 	}
 
-	return fmt.Sprintf("%s: %s: %s", location, err.Code, err.Message)
+	return location
 }
 
 func newParseError(source string, position Position, format string, args ...any) *ParseError {
