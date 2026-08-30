@@ -431,16 +431,18 @@ func inspectResult(nodes int64) application.InspectResult {
 				Metrics:      metrics.Values{Nodes: nodes},
 				DepthPartial: true,
 				Contributions: []analysis.SceneContribution{{
-					Kind:           analysis.ContributionRoot,
-					SceneCanonical: "/game/root.tscn",
-					SceneDisplay:   "res://root.tscn",
-					Occurrences:    1,
-					Values:         analysis.ContributionValues{Nodes: nodes},
-					Reliability:    analysis.ReliabilityExact,
+					Kind:             analysis.ContributionRoot,
+					SceneCanonical:   "/game/root.tscn",
+					SceneDisplay:     "res://root.tscn",
+					Occurrences:      1,
+					Values:           analysis.ContributionValues{Nodes: nodes},
+					Reliability:      analysis.ReliabilityExact,
+					MetricConfidence: analysis.ExactMetricConfidence(),
 				}},
 			},
-			Status:      analysis.AnalysisComplete,
-			Reliability: analysis.ReliabilityExact,
+			Status:           analysis.AnalysisComplete,
+			Reliability:      analysis.ReliabilityExact,
+			MetricConfidence: analysis.ExactMetricConfidence(),
 		},
 	}
 }
@@ -459,6 +461,14 @@ func checkResult(status budget.Status) application.CheckResult {
 	if status == budget.StatusIncomplete {
 		inspect.Analysis.Status = analysis.AnalysisPartial
 		inspect.Analysis.Reliability = analysis.ReliabilityLowerBound
+		confidence, err := analysis.UniformMetricConfidence(
+			analysis.ReliabilityLowerBound,
+			analysis.ConfidenceUnresolvedSceneInstance,
+		)
+		if err != nil {
+			panic(err)
+		}
+		inspect.Analysis.MetricConfidence = confidence
 		inspect.Analysis.Coverage.UnresolvedSceneInstances = 1
 	}
 

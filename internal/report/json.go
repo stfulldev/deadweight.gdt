@@ -61,8 +61,14 @@ type analysisV1 struct {
 }
 
 type metricV1 struct {
-	ID    metrics.Name `json:"id"`
-	Value int64        `json:"value"`
+	ID         metrics.Name `json:"id"`
+	Value      int64        `json:"value"`
+	Confidence confidenceV1 `json:"confidence"`
+}
+
+type confidenceV1 struct {
+	Reliability analysis.Reliability        `json:"reliability"`
+	Reasons     []analysis.ConfidenceReason `json:"reasons"`
 }
 
 type coverageV1 struct {
@@ -289,7 +295,12 @@ func inspectDocumentV1(result application.InspectResult, options Options) (docum
 	metricsDocument := make([]metricV1, 0, len(metrics.OrderedNames()))
 	for _, name := range metrics.OrderedNames() {
 		value, _ := result.Analysis.Summary.Metrics.Get(name)
-		metricsDocument = append(metricsDocument, metricV1{ID: name, Value: value})
+		confidence, _ := result.Analysis.MetricConfidence.Get(name)
+		metricsDocument = append(metricsDocument, metricV1{
+			ID:         name,
+			Value:      value,
+			Confidence: confidenceDocumentV1(confidence),
+		})
 	}
 	diagnostics := sortedDiagnostics(result.Analysis.Diagnostics)
 	diagnosticDocuments := make([]diagnosticV1, 0, len(diagnostics))
@@ -333,6 +344,13 @@ func inspectDocumentV1(result application.InspectResult, options Options) (docum
 			TopContributors: top,
 		},
 	}, nil
+}
+
+func confidenceDocumentV1(confidence analysis.Confidence) confidenceV1 {
+	return confidenceV1{
+		Reliability: confidence.Reliability,
+		Reasons:     append([]analysis.ConfidenceReason{}, confidence.Reasons...),
+	}
 }
 
 func toolDocumentV1(options Options) toolV1 {

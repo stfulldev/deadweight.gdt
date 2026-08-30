@@ -117,7 +117,7 @@ deadweight.gdt tree res://levels/city.tscn --format json
 deadweight.gdt check res://levels/city.tscn --preset steam-deck --format json
 ```
 
-Every document has `schema_version: 1`, a kind discriminator (`inspect`, `tree`, `check`, or `error`), and tool name/version metadata. Inspect, tree, and check documents contain all eight ordered metrics, checked coverage, grouped diagnostics, portable scene/configuration identity, direct per-scene contributions, and shared unique-union evidence. Tree documents additionally contain the bounded dependency projection described below. Check documents contain effective policy metadata, `fail_on_partial`, every configured comparison in canonical metric order, the exceeded count, and the final verdict.
+Every document has `schema_version: 1`, a kind discriminator (`inspect`, `tree`, `check`, or `error`), and tool name/version metadata. Inspect, tree, and check documents contain all eight ordered metrics, per-metric confidence, checked coverage, grouped diagnostics, portable scene/configuration identity, direct per-scene contributions, and shared unique-union evidence. Tree documents additionally contain the bounded dependency projection described below. Check documents contain effective policy metadata, `fail_on_partial`, every configured comparison in canonical metric order, the exceeded count, and the final verdict.
 
 JSON framing follows the command outcome:
 
@@ -156,7 +156,13 @@ Supported selectors are `nodes`, `tree_depth`, `scene_instances`, `mesh_instance
 
 `tree_depth` is a maximum candidate, not a sum. `external_resources` and `scene_dependencies` are shared unique unions, so the CLI deliberately rejects them as top-owner selectors. JSON instead lists every unique target once with its deterministic referrers; a shared texture or diamond dependency is never assigned to an arbitrary owner.
 
-Each row retains its portable scene identity, immediate declaring scene and mount context, occurrence multiplicity, and row-level `exact`, `lower_bound`, or `approximate` reliability. Imported, unavailable, and otherwise unresolved targets cannot appear exact; inherited/override evidence is approximate. This is conservative row-level qualification, not the per-metric confidence model planned separately for MVP 0.2.
+Each row retains its portable scene identity, immediate declaring scene and mount context, occurrence multiplicity, and row-level `exact`, `lower_bound`, or `approximate` reliability. Every row metric also carries its own confidence and machine-readable reasons, including maximum and unique-union entries without an owned numeric value. Imported, unavailable, and otherwise unresolved targets cannot appear exact; inherited/override evidence is approximate.
+
+## Per-metric confidence
+
+Every frozen metric has deterministic `exact`, `lower_bound`, or `approximate` confidence. Report-wide and contribution-wide reliability remain conservative summaries, while metric-level evidence avoids spreading unrelated uncertainty: an unavailable ordinary resource qualifies `external_resources`, unsupported parent composition qualifies `tree_depth`, an unexpanded scene closure can qualify every hidden closure metric, and inherited semantics are approximate where they can change values.
+
+Schema-v1 root and contribution metric objects include a `confidence` object with `reliability` and an ordered `reasons` array. Stable reasons distinguish unresolved, imported, unsupported, subresource, placeholder, unavailable, inherited, resource-path, and parent evidence. Exact confidence has no reasons. Text metrics and check actuals use their own `+` or `~` marker; a compact `Metric confidence` section appears only for mixed-confidence reports. Unavailable maximum or unique-union evidence stays unavailable and is never serialized or rendered as a known zero.
 
 ## Metrics
 

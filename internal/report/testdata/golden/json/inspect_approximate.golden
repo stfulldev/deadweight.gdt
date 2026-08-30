@@ -18,35 +18,83 @@
     "metrics": [
       {
         "id": "nodes",
-        "value": 2841
+        "value": 2841,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "tree_depth",
-        "value": 17
+        "value": 17,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "scene_instances",
-        "value": 184
+        "value": 184,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "mesh_instances",
-        "value": 1024
+        "value": 1024,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "lights",
-        "value": 43
+        "value": 43,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "shadow_lights",
-        "value": 9
+        "value": 9,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "external_resources",
-        "value": 218
+        "value": 218,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       },
       {
         "id": "scene_dependencies",
-        "value": 12
+        "value": 12,
+        "confidence": {
+          "reliability": "approximate",
+          "reasons": [
+            "inherited_scene"
+          ]
+        }
       }
     ],
     "coverage": {
@@ -76,41 +124,89 @@
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 2841
+            "value": 2841,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
             "value": 17,
-            "available": true
+            "available": true,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 184
+            "value": 184,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "mesh_instances",
             "aggregation": "additive",
-            "value": 1024
+            "value": 1024,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "lights",
             "aggregation": "additive",
-            "value": 43
+            "value": 43,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "shadow_lights",
             "aggregation": "additive",
-            "value": 9
+            "value": 9,
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "external_resources",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           },
           {
             "id": "scene_dependencies",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "approximate",
+              "reasons": [
+                "inherited_scene"
+              ]
+            }
           }
         ]
       }

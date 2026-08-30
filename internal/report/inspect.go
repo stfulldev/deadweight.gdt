@@ -24,13 +24,14 @@ func Inspect(result application.InspectResult, options Options) (string, error) 
 	fmt.Fprintf(&output, "%-11s%s\n", "Accuracy:", accuracyLabel(result.Analysis.Reliability))
 
 	values := result.Analysis.Summary.Metrics
-	reliability := result.Analysis.Reliability
+	confidence := result.Analysis.MetricConfidence
 	output.WriteByte('\n')
-	writeMetricBlock(&output, "Structure", structureMetrics, values, reliability)
+	writeMetricBlock(&output, "Structure", structureMetrics, values, confidence)
 	output.WriteByte('\n')
-	writeMetricBlock(&output, "Rendering", renderingMetrics, values, reliability)
+	writeMetricBlock(&output, "Rendering", renderingMetrics, values, confidence)
 	output.WriteByte('\n')
-	writeMetricBlock(&output, "Resources", resourceMetrics, values, reliability)
+	writeMetricBlock(&output, "Resources", resourceMetrics, values, confidence)
+	writeMetricConfidenceQualifications(&output, confidence, result.Analysis.Reliability)
 
 	coverage := result.Analysis.Coverage
 	output.WriteString("\nCoverage\n")
@@ -61,12 +62,16 @@ func writeReliabilityWarning(output *strings.Builder, result analysis.RecursiveR
 			"\n%s: Expanded metrics are partial. Values marked with + are known\n",
 			style.status("WARNING"),
 		)
-		fmt.Fprintf(
-			output,
-			"lower bounds because %s %s could not be analyzed statically.\n",
-			formatInteger(count),
-			plural(count, "scene instance", "scene instances"),
-		)
+		if count > 0 {
+			fmt.Fprintf(
+				output,
+				"lower bounds because %s %s could not be analyzed statically.\n",
+				formatInteger(count),
+				plural(count, "scene instance", "scene instances"),
+			)
+		} else {
+			output.WriteString("lower bounds because some static evidence is unavailable.\n")
+		}
 	case analysis.ReliabilityApproximate:
 		fmt.Fprintf(
 			output,

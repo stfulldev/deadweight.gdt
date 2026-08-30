@@ -110,6 +110,7 @@ type RecursiveResult struct {
 	ParsedSceneFiles int64
 	Status           AnalysisStatus
 	Reliability      Reliability
+	MetricConfidence MetricConfidence
 	Coverage         Coverage
 	Diagnostics      []diagnostic.Diagnostic
 }
@@ -152,6 +153,7 @@ func cloneRecursiveResult(result RecursiveResult) RecursiveResult {
 	cloned.Summary = cloneExpandedSummary(result.Summary)
 	cloned.Graph = cloneDependencyGraph(result.Graph)
 	cloned.UniqueEvidence = cloneUniqueEvidence(result.UniqueEvidence)
+	cloned.MetricConfidence = cloneMetricConfidence(result.MetricConfidence)
 	cloned.Diagnostics = append([]diagnostic.Diagnostic(nil), result.Diagnostics...)
 
 	return cloned

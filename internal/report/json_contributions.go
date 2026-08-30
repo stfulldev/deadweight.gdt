@@ -28,6 +28,7 @@ type contributionMetricV1 struct {
 	Aggregation string       `json:"aggregation"`
 	Value       *int64       `json:"value,omitempty"`
 	Available   *bool        `json:"available,omitempty"`
+	Confidence  confidenceV1 `json:"confidence"`
 }
 
 type uniqueEvidenceV1 struct {
@@ -93,7 +94,11 @@ func contributionDocumentV1(projectRoot string, item analysis.SceneContribution)
 func contributionMetricsV1(item analysis.SceneContribution) []contributionMetricV1 {
 	result := make([]contributionMetricV1, 0, len(metrics.OrderedNames()))
 	for _, name := range metrics.OrderedNames() {
-		entry := contributionMetricV1{ID: name}
+		confidence, _ := item.MetricConfidence.Get(name)
+		entry := contributionMetricV1{
+			ID:         name,
+			Confidence: confidenceDocumentV1(confidence),
+		}
 		switch name {
 		case metrics.TreeDepth:
 			entry.Aggregation = "maximum"

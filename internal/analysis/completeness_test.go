@@ -57,9 +57,9 @@ func TestAnalysisStatusReliabilityAndCoverageValidation(t *testing.T) {
 	}
 
 	validPairs := []completionResult{
-		{Status: AnalysisComplete, Reliability: ReliabilityExact},
-		{Status: AnalysisPartial, Reliability: ReliabilityLowerBound},
-		{Status: AnalysisPartial, Reliability: ReliabilityApproximate},
+		{Status: AnalysisComplete, Reliability: ReliabilityExact, MetricConfidence: ExactMetricConfidence()},
+		{Status: AnalysisPartial, Reliability: ReliabilityLowerBound, MetricConfidence: testMetricConfidence(ReliabilityLowerBound)},
+		{Status: AnalysisPartial, Reliability: ReliabilityApproximate, MetricConfidence: testMetricConfidence(ReliabilityApproximate)},
 	}
 	for _, result := range validPairs {
 		if err := validateCompletion(result); err != nil {
@@ -67,10 +67,10 @@ func TestAnalysisStatusReliabilityAndCoverageValidation(t *testing.T) {
 		}
 	}
 	invalidPairs := []completionResult{
-		{Status: "unknown", Reliability: ReliabilityExact},
-		{Status: AnalysisComplete, Reliability: "unknown"},
-		{Status: AnalysisComplete, Reliability: ReliabilityLowerBound},
-		{Status: AnalysisPartial, Reliability: ReliabilityExact},
+		{Status: "unknown", Reliability: ReliabilityExact, MetricConfidence: ExactMetricConfidence()},
+		{Status: AnalysisComplete, Reliability: "unknown", MetricConfidence: ExactMetricConfidence()},
+		{Status: AnalysisComplete, Reliability: ReliabilityLowerBound, MetricConfidence: testMetricConfidence(ReliabilityLowerBound)},
+		{Status: AnalysisPartial, Reliability: ReliabilityExact, MetricConfidence: ExactMetricConfidence()},
 	}
 	for _, result := range invalidPairs {
 		if err := validateCompletion(result); err == nil {
@@ -93,8 +93,9 @@ func TestFinalizeCompletenessReturnsCompleteExactCoverage(t *testing.T) {
 		t.Fatalf("finalizeCompleteness() error = %v", err)
 	}
 	want := completionResult{
-		Status:      AnalysisComplete,
-		Reliability: ReliabilityExact,
+		Status:           AnalysisComplete,
+		Reliability:      ReliabilityExact,
+		MetricConfidence: ExactMetricConfidence(),
 		Coverage: Coverage{
 			ResolvedSceneInstances: 2,
 			ParsedSceneFiles:       3,

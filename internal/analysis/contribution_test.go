@@ -13,12 +13,13 @@ func TestSceneContributionValidationRejectsInvalidDomainValues(t *testing.T) {
 	t.Parallel()
 
 	valid := SceneContribution{
-		Kind:           ContributionRoot,
-		SceneCanonical: "/project/root.tscn",
-		Occurrences:    1,
-		Values:         ContributionValues{Nodes: 1},
-		DepthCandidate: OptionalDepth{Value: 1, Known: true},
-		Reliability:    ReliabilityExact,
+		Kind:             ContributionRoot,
+		SceneCanonical:   "/project/root.tscn",
+		Occurrences:      1,
+		Values:           ContributionValues{Nodes: 1},
+		DepthCandidate:   OptionalDepth{Value: 1, Known: true},
+		Reliability:      ReliabilityExact,
+		MetricConfidence: ExactMetricConfidence(),
 	}
 	tests := []struct {
 		name   string
@@ -64,12 +65,14 @@ func TestContributionCompactionIsCheckedConservativeAndOwned(t *testing.T) {
 		Values:           ContributionValues{Nodes: 4, SceneInstances: 2},
 		DepthCandidate:   OptionalDepth{Value: 3, Known: true},
 		Reliability:      ReliabilityExact,
+		MetricConfidence: ExactMetricConfidence(),
 	}
 	second := base
 	second.Occurrences = 3
 	second.Values = ContributionValues{Nodes: 6, SceneInstances: 3}
 	second.DepthCandidate.Value = 4
 	second.Reliability = ReliabilityApproximate
+	second.MetricConfidence = testMetricConfidence(ReliabilityApproximate)
 
 	got, err := compactContributions([]SceneContribution{second, base})
 	if err != nil {
@@ -112,12 +115,14 @@ func TestValidateContributionEvidenceChecksAllAggregationModes(t *testing.T) {
 					Kind: ContributionRoot, SceneCanonical: "/project/root.tscn", Occurrences: 1,
 					Values:         ContributionValues{Nodes: 2},
 					DepthCandidate: OptionalDepth{Value: 2, Known: true}, Reliability: ReliabilityExact,
+					MetricConfidence: ExactMetricConfidence(),
 				},
 				{
 					Kind: ContributionScene, SceneCanonical: "/project/child.tscn",
 					DeclaringScene: "/project/root.tscn", MountPath: "Child", Occurrences: 1,
 					Values:         ContributionValues{Nodes: 1, SceneInstances: 1, MeshInstances: 1},
 					DepthCandidate: OptionalDepth{Value: 4, Known: true}, Reliability: ReliabilityExact,
+					MetricConfidence: ExactMetricConfidence(),
 				},
 			},
 		},

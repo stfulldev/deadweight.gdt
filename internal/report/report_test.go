@@ -356,6 +356,50 @@ func TestFallbackPresentationValues(t *testing.T) {
 	}
 }
 
+func TestMixedMetricConfidenceUsesScopedMarkersAndQualifications(t *testing.T) {
+	t.Parallel()
+
+	result := ordinaryResourceInspect()
+	rendered, err := Inspect(result, Options{Version: "test"})
+	if err != nil {
+		t.Fatalf("Inspect() error = %v", err)
+	}
+	for _, exact := range []string{
+		"Nodes",
+		"Tree depth",
+		"Scene instances",
+		"Mesh instances",
+		"Lights",
+		"Shadow lights",
+		"Scene dependencies",
+	} {
+		if !strings.Contains(rendered, exact) {
+			t.Errorf("mixed report lacks %q", exact)
+		}
+	}
+	if !strings.Contains(rendered, "External resources") ||
+		!strings.Contains(rendered, "218+") ||
+		!strings.Contains(rendered, "Metric confidence") ||
+		!strings.Contains(rendered, "Nodes                      exact") ||
+		!strings.Contains(rendered, "some static evidence is unavailable") ||
+		strings.Contains(rendered, "0 scene instances") {
+		t.Fatalf("mixed confidence report =\n%s", rendered)
+	}
+
+	check := presetCheck(budget.StatusPassed, false)
+	check.Inspect = result
+	check.Evaluation.Reliability = result.Analysis.Reliability
+	checkText, err := Check(check, Options{Version: "test"})
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if !strings.Contains(checkText, "External resources") ||
+		!strings.Contains(checkText, "218+") ||
+		strings.Contains(checkText, "2,841+") {
+		t.Fatalf("mixed check markers =\n%s", checkText)
+	}
+}
+
 func completeInspect() application.InspectResult {
 	result := application.InspectResult{
 		Project: project.Root{Directory: "<PROJECT>", ProjectFile: "<PROJECT>/project.godot"},
@@ -368,17 +412,19 @@ func completeInspect() application.InspectResult {
 			Summary: analysis.ExpandedSummary{
 				Metrics: cityMetrics(),
 				Contributions: []analysis.SceneContribution{{
-					Kind:           analysis.ContributionRoot,
-					SceneCanonical: "<PROJECT>/levels/city.tscn",
-					SceneDisplay:   "res://levels/city.tscn",
-					Occurrences:    1,
-					Values:         fixtureContributionValues(cityMetrics()),
-					DepthCandidate: analysis.OptionalDepth{Value: cityMetrics().TreeDepth, Known: true},
-					Reliability:    analysis.ReliabilityExact,
+					Kind:             analysis.ContributionRoot,
+					SceneCanonical:   "<PROJECT>/levels/city.tscn",
+					SceneDisplay:     "res://levels/city.tscn",
+					Occurrences:      1,
+					Values:           fixtureContributionValues(cityMetrics()),
+					DepthCandidate:   analysis.OptionalDepth{Value: cityMetrics().TreeDepth, Known: true},
+					Reliability:      analysis.ReliabilityExact,
+					MetricConfidence: fixtureMetricConfidence(analysis.ReliabilityExact),
 				}},
 			},
-			Status:      analysis.AnalysisComplete,
-			Reliability: analysis.ReliabilityExact,
+			Status:           analysis.AnalysisComplete,
+			Reliability:      analysis.ReliabilityExact,
+			MetricConfidence: fixtureMetricConfidence(analysis.ReliabilityExact),
 			Coverage: analysis.Coverage{
 				ParsedSceneFiles:         13,
 				ResolvedSceneInstances:   184,
@@ -386,6 +432,26 @@ func completeInspect() application.InspectResult {
 			},
 		},
 	}
+
+	return result
+}
+
+func ordinaryResourceInspect() application.InspectResult {
+	result := completeInspect()
+	confidence, err := result.Analysis.MetricConfidence.With(
+		metrics.ExternalResources,
+		analysis.ReliabilityLowerBound,
+		analysis.ConfidenceUnavailableResource,
+	)
+	if err != nil {
+		panic(err)
+	}
+	result.Analysis.Status = analysis.AnalysisPartial
+	result.Analysis.Reliability = analysis.ReliabilityLowerBound
+	result.Analysis.MetricConfidence = confidence
+	row := &result.Analysis.Summary.Contributions[0]
+	row.MetricConfidence = confidence
+	row.Reliability = confidence.Reliability()
 
 	return result
 }
@@ -404,6 +470,7 @@ func lowerBoundInspect() application.InspectResult {
 	result := completeInspect()
 	result.Analysis.Status = analysis.AnalysisPartial
 	result.Analysis.Reliability = analysis.ReliabilityLowerBound
+	result.Analysis.MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityLowerBound)
 	result.Analysis.Coverage.ResolvedSceneInstances = 179
 	result.Analysis.Coverage.UnresolvedSceneInstances = 5
 	result.Analysis.Summary.Unresolved = []analysis.UnresolvedInstance{
@@ -458,6 +525,7 @@ func lowerBoundInspect() application.InspectResult {
 			Values:           analysis.ContributionValues{Nodes: 2, SceneInstances: 2},
 			DepthCandidate:   analysis.OptionalDepth{Value: 4, Known: true},
 			Reliability:      analysis.ReliabilityLowerBound,
+			MetricConfidence: fixtureMetricConfidence(analysis.ReliabilityLowerBound),
 		},
 		analysis.SceneContribution{
 			Kind:             analysis.ContributionUnresolved,
@@ -471,6 +539,7 @@ func lowerBoundInspect() application.InspectResult {
 			Values:           analysis.ContributionValues{Nodes: 3, SceneInstances: 3},
 			DepthCandidate:   analysis.OptionalDepth{Value: 3, Known: true},
 			Reliability:      analysis.ReliabilityLowerBound,
+			MetricConfidence: fixtureMetricConfidence(analysis.ReliabilityLowerBound),
 		},
 	)
 
@@ -481,6 +550,7 @@ func approximateInspect() application.InspectResult {
 	result := completeInspect()
 	result.Analysis.Status = analysis.AnalysisPartial
 	result.Analysis.Reliability = analysis.ReliabilityApproximate
+	result.Analysis.MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityApproximate)
 	result.Analysis.Coverage.InheritedScenes = 1
 	result.Analysis.Summary.InheritedTargets = []analysis.InheritedTarget{{
 		Classification: analysis.TargetInheritedScene,
@@ -495,8 +565,25 @@ func approximateInspect() application.InspectResult {
 		Occurrences: 1,
 	}}
 	result.Analysis.Summary.Contributions[0].Reliability = analysis.ReliabilityApproximate
+	result.Analysis.Summary.Contributions[0].MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityApproximate)
 
 	return result
+}
+
+func fixtureMetricConfidence(reliability analysis.Reliability) analysis.MetricConfidence {
+	reasons := []analysis.ConfidenceReason(nil)
+	switch reliability {
+	case analysis.ReliabilityLowerBound:
+		reasons = []analysis.ConfidenceReason{analysis.ConfidenceImportedScene}
+	case analysis.ReliabilityApproximate:
+		reasons = []analysis.ConfidenceReason{analysis.ConfidenceInheritedScene}
+	}
+	confidence, err := analysis.UniformMetricConfidence(reliability, reasons...)
+	if err != nil {
+		panic(err)
+	}
+
+	return confidence
 }
 
 func presetCheck(status budget.Status, partial bool) application.CheckResult {

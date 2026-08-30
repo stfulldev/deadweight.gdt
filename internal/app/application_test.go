@@ -580,16 +580,25 @@ func sceneDependencies(
 
 func completeAnalysis(values metrics.Values) analysis.RecursiveResult {
 	return analysis.RecursiveResult{
-		Summary:     analysis.ExpandedSummary{Metrics: values},
-		Status:      analysis.AnalysisComplete,
-		Reliability: analysis.ReliabilityExact,
+		Summary:          analysis.ExpandedSummary{Metrics: values},
+		Status:           analysis.AnalysisComplete,
+		Reliability:      analysis.ReliabilityExact,
+		MetricConfidence: analysis.ExactMetricConfidence(),
 	}
 }
 
 func partialAnalysis(values metrics.Values) analysis.RecursiveResult {
+	confidence, err := analysis.UniformMetricConfidence(
+		analysis.ReliabilityLowerBound,
+		analysis.ConfidenceUnresolvedSceneInstance,
+	)
+	if err != nil {
+		panic(err)
+	}
 	return analysis.RecursiveResult{
-		Summary:     analysis.ExpandedSummary{Metrics: values},
-		Status:      analysis.AnalysisPartial,
-		Reliability: analysis.ReliabilityLowerBound,
+		Summary:          analysis.ExpandedSummary{Metrics: values},
+		Status:           analysis.AnalysisPartial,
+		Reliability:      analysis.ReliabilityLowerBound,
+		MetricConfidence: confidence,
 	}
 }
