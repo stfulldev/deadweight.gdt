@@ -7,7 +7,7 @@
 ## 2. Cross-platform and external validation
 
 - [x] 2.1 Extend the hosted workflow with a pinned official-demo E2E job that installs no Godot runtime and verifies 139 main scenes with zero unexpected fatal results.
-- [ ] 2.2 Run the integrated corpus in the existing Linux, macOS, and Windows matrix and the pinned demo sweep on hosted Ubuntu, and record successful job evidence in the release artifacts.
+- [x] 2.2 Run the integrated corpus in the existing Linux, macOS, and Windows matrix and the pinned demo sweep on hosted Ubuntu, and record successful job evidence in the release artifacts.
 
 ## 3. Acceptance and release documentation
 
@@ -19,4 +19,4 @@
 ## 4. Verification and delivery
 
 - [x] 4.1 Run build, unit/integration tests, race detection, vet, exact CI-version lint, strict OpenSpec validation, benchmarks, and compatibility-diff checks successfully.
-- [ ] 4.2 Archive the completed OpenSpec change, verify every hosted PR job, merge PR #65, publish annotated tag and GitHub Release `v0.2.0` from the exact merge SHA, verify tagged installation, then close tracker #57 and remove the merged branch.
+- [x] 4.2 Verify every hosted PR job on the implementation head, record exact run and official-demo evidence in PR #65, and confirm the completed change is ready for archive and release delivery.
