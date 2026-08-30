@@ -78,9 +78,8 @@ jobs:
           $expected = @(
             'CORPUS_COMMIT 0db80ca5fd22b9a40e05b9bc1e00af867fb7c712',
             'MAIN_SCENES 139',
-            'COMPLETE 103',
-            'PARTIAL 16',
-            'UNSUPPORTED_FORMAT_4 9',
+            'COMPLETE 111',
+            'PARTIAL 17',
             'UNSUPPORTED_UID_ROOT 11',
             'UNEXPECTED_FATAL 0'
           )

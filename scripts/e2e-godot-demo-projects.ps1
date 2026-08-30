@@ -4,7 +4,7 @@ Runs deadweight.gdt against every declared main scene in a Godot demo-project ch
 
 .DESCRIPTION
 This opt-in contributor check keeps the external demo corpus outside this repository.
-It classifies documented unsupported format-4 and UID-root inputs separately and
+It analyzes supported format-3 and format-4 text scenes, classifies UID-root inputs separately, and
 returns a nonzero exit code only for setup failures or unexpected fatal analysis.
 
 .PARAMETER DeadweightPath
@@ -96,10 +96,6 @@ $results = foreach ($projectFile in Get-ChildItem -LiteralPath $resolvedDemoRoot
     if ($commandExit -eq 0 -and $commandOutput -match '(?m)^Analysis:\s+(COMPLETE|PARTIAL)\s*$') {
         $category = $Matches[1]
     }
-    elseif ($commandExit -eq 2 -and $commandOutput -match 'unsupported Godot scene format 4') {
-        $category = 'UNSUPPORTED_FORMAT_4'
-    }
-
     $firstLine = ($commandOutput -split '\r?\n' | Select-Object -First 1)
     [PSCustomObject]@{
         Project = $project
@@ -112,7 +108,6 @@ $results = foreach ($projectFile in Get-ChildItem -LiteralPath $resolvedDemoRoot
 $categoryOrder = @(
     'COMPLETE',
     'PARTIAL',
-    'UNSUPPORTED_FORMAT_4',
     'UNSUPPORTED_UID_ROOT',
     'UNEXPECTED_FATAL'
 )
