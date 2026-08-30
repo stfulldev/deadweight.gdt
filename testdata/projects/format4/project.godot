@@ -1,0 +1,3 @@
+[application]
+config/name="Format4 Compatibility"
+run/main_scene="res://root.tscn"

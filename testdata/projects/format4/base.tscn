@@ -1,0 +1,4 @@
+[gd_scene format=4 uid="uid://formatbase"]
+
+[node name="Base" type="Node3D" unique_id=401]
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=402]

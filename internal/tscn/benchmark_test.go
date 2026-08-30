@@ -51,3 +51,30 @@ func BenchmarkParseRepresentativeScene(b *testing.B) {
 		benchmarkDocument = parsed
 	}
 }
+
+func BenchmarkParseFormat4Base64Payload(b *testing.B) {
+	payload := strings.Repeat("QUJD", 250_000)
+	scene := "[gd_scene format=4]\n" +
+		"[sub_resource type=\"ArrayMesh\" id=\"Mesh\"]\n" +
+		"_data = PackedByteArray(\"" + payload + "\")\n" +
+		"[node name=\"Root\" type=\"Node3D\" unique_id=123]\n"
+
+	document, err := tscn.Parse(strings.NewReader(scene), "format4-benchmark.tscn")
+	if err != nil {
+		b.Fatalf("validate format-4 scene: %v", err)
+	}
+	if document.Header.Format != 4 || len(document.Nodes) != 1 {
+		b.Fatalf("unexpected format-4 document: %#v", document)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(scene)))
+	b.ResetTimer()
+	for range b.N {
+		parsed, parseErr := tscn.Parse(strings.NewReader(scene), "format4-benchmark.tscn")
+		if parseErr != nil {
+			b.Fatal(parseErr)
+		}
+		benchmarkDocument = parsed
+	}
+}

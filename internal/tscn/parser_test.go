@@ -3,6 +3,7 @@ package tscn_test
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -152,6 +153,94 @@ func TestParseAcceptsMultilineStringsAndQuotedPropertyNames(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsFormat4PackedValuesAndPreservesFormat3Semantics(t *testing.T) {
+	t.Parallel()
+
+	format3 := `[gd_scene format=3 uid="uid://root"]
+
+[ext_resource type="PackedScene" uid="uid://child" path="res://child.tscn" id="1_child"]
+
+[node name="Root" type="Node3D"]
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true
+[node name="Child" parent="." instance=ExtResource("1_child")]
+`
+	format4 := `[gd_scene format=4 uid="uid://root"]
+
+[ext_resource type="PackedScene" uid="uid://child" path="res://child.tscn" id="1_child"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_fixture"]
+payload = {
+"bytes": PackedByteArray("W2dkX3NjZW5lIGZvcm1hdD01XQ=="),
+"vectors": [PackedVector4Array(1, 2, 3, 4, 5, 6, 7, 8)]
+}
+
+[node name="Root" type="Node3D" unique_id=1001]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1002]
+shadow_enabled = true
+[node name="Child" parent="." instance=ExtResource("1_child") unique_id=1003]
+`
+
+	document3, err := tscn.Parse(strings.NewReader(format3), "format3.tscn")
+	if err != nil {
+		t.Fatalf("parse format 3: %v", err)
+	}
+	document4, err := tscn.Parse(strings.NewReader(format4), "format4.tscn")
+	if err != nil {
+		t.Fatalf("parse format 4: %v", err)
+	}
+	if document4.Header.Format != 4 {
+		t.Fatalf("format-4 header = %#v", document4.Header)
+	}
+
+	normalize := func(document *tscn.Document) {
+		document.Header.Format = 3
+		for id, resource := range document.ExtResources {
+			resource.Position = tscn.Position{}
+			document.ExtResources[id] = resource
+		}
+		for index := range document.Nodes {
+			document.Nodes[index].Position = tscn.Position{}
+		}
+	}
+	normalize(document3)
+	normalize(document4)
+	if !reflect.DeepEqual(document4, document3) {
+		t.Fatalf("minimal documents differ\nformat 3: %#v\nformat 4: %#v", document3, document4)
+	}
+}
+
+func TestParseRejectsMalformedFormat4PackedValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "unterminated base64 string", value: `PackedByteArray("QUJD)`, want: "unterminated string"},
+		{name: "mismatched packed vector", value: `PackedVector4Array(1, 2, 3, 4]`, want: "mismatched closing delimiter"},
+		{name: "unclosed packed vector", value: `PackedVector4Array(1, 2, 3, 4`, want: "unclosed delimiter"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := "[gd_scene format=4]\n" +
+				"[sub_resource type=\"Resource\" id=\"Payload\"]\n" +
+				"payload = " + test.value + "\n" +
+				"[node name=\"Root\" type=\"Node\"]\n"
+			_, err := tscn.Parse(strings.NewReader(input), "malformed-format4.tscn")
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Parse() error = %v, want containing %q", err, test.want)
+			}
+			if code, ok := diagnostic.CodeOf(err); !ok || code != diagnostic.CodeInvalidTSCNRoot {
+				t.Fatalf("diagnostic.CodeOf() = %q, %v", code, ok)
+			}
+		})
+	}
+}
+
 func TestParseRejectsMalformedOrUnsupportedScenes(t *testing.T) {
 	t.Parallel()
 
@@ -162,8 +251,10 @@ func TestParseRejectsMalformedOrUnsupportedScenes(t *testing.T) {
 	}{
 		{name: "empty", input: "", want: "missing [gd_scene]"},
 		{name: "wrong first section", input: `[ext_resource id="1"]`, want: "first section must be [gd_scene]"},
-		{name: "missing format", input: "[gd_scene]\n[node name=\"Root\" type=\"Node\"]", want: "must define format=3"},
+		{name: "missing format", input: "[gd_scene]\n[node name=\"Root\" type=\"Node\"]", want: "must define format=3 or format=4"},
+		{name: "non-integer format", input: "[gd_scene format=future]\n[node name=\"Root\" type=\"Node\"]", want: "supported formats are 3 and 4"},
 		{name: "format two", input: "[gd_scene format=2]\n[node name=\"Root\" type=\"Node\"]", want: "unsupported Godot scene format 2"},
+		{name: "format five", input: "[gd_scene format=5]\n[node name=\"Root\" type=\"Node\"]", want: "unsupported Godot scene format 5; expected format=3 or format=4"},
 		{name: "duplicate scene", input: "[gd_scene format=3]\n[gd_scene format=3]\n[node name=\"Root\" type=\"Node\"]", want: "duplicate [gd_scene]"},
 		{name: "no root", input: "[gd_scene format=3]\n", want: "scene must contain exactly one root node"},
 		{name: "duplicate resource", input: "[gd_scene format=3]\n[ext_resource id=\"1\"]\n[ext_resource id=1]\n[node name=\"Root\" type=\"Node\"]", want: "duplicate external resource id"},
@@ -229,5 +320,23 @@ func TestParseSkipsLargePackedArrayWithoutBuildingVariantAST(t *testing.T) {
 	}
 	if len(document.Nodes) != 1 || document.Nodes[0].Name != "Root" {
 		t.Fatalf("Nodes = %#v", document.Nodes)
+	}
+}
+
+func TestParseSkipsLargeFormat4Base64PayloadWithoutBuildingVariantAST(t *testing.T) {
+	t.Parallel()
+
+	payload := strings.Repeat("QUJD", 250_000)
+	input := "[gd_scene format=4]\n" +
+		"[sub_resource type=\"ArrayMesh\" id=\"Mesh\"]\n" +
+		"_data = PackedByteArray(\"" + payload + "\")\n" +
+		"[node name=\"Root\" type=\"Node3D\" unique_id=123]\n"
+
+	document, err := tscn.Parse(strings.NewReader(input), "large-format4.tscn")
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if document.Header.Format != 4 || len(document.Nodes) != 1 || document.Nodes[0].Name != "Root" {
+		t.Fatalf("document = %#v", document)
 	}
 }

@@ -1,0 +1,3 @@
+[gd_scene format=5 uid="uid://future"]
+
+[node name="Future" type="Node3D"]

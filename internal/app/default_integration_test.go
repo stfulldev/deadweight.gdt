@@ -51,6 +51,71 @@ func TestDefaultApplicationInspectsAndChecksTextSceneWithoutGodot(t *testing.T) 
 	}
 }
 
+func TestDefaultApplicationSupportsFormat4AcrossRecursiveAndInheritedFlows(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Join(fixtureProjects(t), "format4")
+	service := application.NewDefault()
+
+	complete, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
+		Scene: "res://root.tscn", Project: root,
+	}})
+	if err != nil {
+		t.Fatalf("inspect format-4 root: %v", err)
+	}
+	wantComplete := metrics.Values{
+		Nodes: 4, TreeDepth: 4, SceneInstances: 2, MeshInstances: 1,
+		Lights: 1, ShadowLights: 1, ExternalResources: 2, SceneDependencies: 2,
+	}
+	if complete.Analysis.Summary.Metrics != wantComplete || complete.Analysis.Status != analysis.AnalysisComplete ||
+		complete.Analysis.Reliability != analysis.ReliabilityExact ||
+		complete.Analysis.Coverage != (analysis.Coverage{ResolvedSceneInstances: 2, ParsedSceneFiles: 3}) {
+		t.Fatalf("format-4 complete analysis = %#v", complete.Analysis)
+	}
+
+	inherited, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
+		Scene: "res://derived.tscn", Project: root,
+	}})
+	if err != nil {
+		t.Fatalf("inspect format-4 inherited scene: %v", err)
+	}
+	wantInherited := metrics.Values{
+		Nodes: 3, TreeDepth: 2, MeshInstances: 1, Lights: 1, ShadowLights: 1,
+		ExternalResources: 1, SceneDependencies: 1,
+	}
+	if inherited.Analysis.Summary.Metrics != wantInherited || inherited.Analysis.Status != analysis.AnalysisPartial ||
+		inherited.Analysis.Reliability != analysis.ReliabilityApproximate ||
+		inherited.Analysis.Coverage != (analysis.Coverage{ParsedSceneFiles: 2, InheritedScenes: 1}) {
+		t.Fatalf("format-4 inherited analysis = %#v", inherited.Analysis)
+	}
+
+	format3, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
+		Scene: "res://equivalent3.tscn", Project: root,
+	}})
+	if err != nil {
+		t.Fatalf("inspect equivalent format 3: %v", err)
+	}
+	format4, err := service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
+		Scene: "res://equivalent4.tscn", Project: root,
+	}})
+	if err != nil {
+		t.Fatalf("inspect equivalent format 4: %v", err)
+	}
+	if format4.Analysis.Summary.Metrics != format3.Analysis.Summary.Metrics ||
+		format4.Analysis.Status != format3.Analysis.Status || format4.Analysis.Reliability != format3.Analysis.Reliability ||
+		!reflect.DeepEqual(format4.Analysis.MetricConfidence, format3.Analysis.MetricConfidence) {
+		t.Fatalf("equivalent analyses differ\nformat 3: %#v\nformat 4: %#v", format3.Analysis, format4.Analysis)
+	}
+
+	_, err = service.Inspect(application.InspectRequest{SceneRequest: application.SceneRequest{
+		Scene: "res://future-root.tscn", Project: root,
+	}})
+	if code, ok := diagnostic.CodeOf(err); !ok || code != diagnostic.CodeInvalidTSCNRoot ||
+		!strings.Contains(err.Error(), "unsupported Godot scene format 5") {
+		t.Fatalf("future nested format error/code = %v / %q, %v", err, code, ok)
+	}
+}
+
 func TestDefaultApplicationFixtureMatrix(t *testing.T) {
 	t.Parallel()
 

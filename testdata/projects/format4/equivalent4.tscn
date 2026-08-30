@@ -1,0 +1,9 @@
+[gd_scene format=4 uid="uid://equivalent4"]
+
+[sub_resource type="Resource" id="Opaque"]
+payload = [PackedByteArray("QUJD"), PackedVector4Array(1, 2, 3, 4)]
+
+[node name="Equivalent" type="Node3D" unique_id=601]
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=602]
+[node name="Light" type="SpotLight3D" parent="." unique_id=603]
+shadow_enabled = true

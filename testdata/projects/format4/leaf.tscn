@@ -1,0 +1,11 @@
+[gd_scene format=4 uid="uid://formatleaf"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_leaf"]
+payload = {
+"bytes": PackedByteArray("W2dkX3NjZW5lIGZvcm1hdD01XQ=="),
+"vectors": PackedVector4Array(1, 2, 3, 4)
+}
+
+[node name="Leaf" type="MeshInstance3D" unique_id=301]
+[node name="Light" type="OmniLight3D" parent="." unique_id=302]
+shadow_enabled = true
