@@ -18,5 +18,5 @@
 
 ## 4. Verification and delivery
 
-- [ ] 4.1 Run build, unit/integration tests, race detection, vet, exact CI-version lint, strict OpenSpec validation, benchmarks, and compatibility-diff checks successfully.
+- [x] 4.1 Run build, unit/integration tests, race detection, vet, exact CI-version lint, strict OpenSpec validation, benchmarks, and compatibility-diff checks successfully.
 - [ ] 4.2 Archive the completed OpenSpec change, verify every hosted PR job, merge PR #65, publish annotated tag and GitHub Release `v0.2.0` from the exact merge SHA, verify tagged installation, then close tracker #57 and remove the merged branch.
