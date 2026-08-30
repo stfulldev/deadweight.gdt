@@ -43,7 +43,7 @@ type wireAnalysis struct {
 	Status         analysis.AnalysisStatus `json:"status"`
 	Reliability    analysis.Reliability    `json:"reliability"`
 	Metrics        *[]wireMetric           `json:"metrics"`
-	Coverage       *analysis.Coverage      `json:"coverage"`
+	Coverage       *wireCoverage           `json:"coverage"`
 	Diagnostics    *[]wireDiagnostic       `json:"diagnostics"`
 	Contributions  *[]json.RawMessage      `json:"contributions"`
 	UniqueEvidence *[]wireUniqueEvidence   `json:"unique_evidence"`
@@ -58,6 +58,13 @@ type wireMetric struct {
 type wireConfidence struct {
 	Reliability analysis.Reliability         `json:"reliability"`
 	Reasons     *[]analysis.ConfidenceReason `json:"reasons"`
+}
+
+type wireCoverage struct {
+	ParsedSceneFiles         int64 `json:"parsed_scene_files"`
+	ResolvedSceneInstances   int64 `json:"resolved_scene_instances"`
+	UnresolvedSceneInstances int64 `json:"unresolved_scene_instances"`
+	InheritedScenes          int64 `json:"inherited_scenes"`
 }
 
 type wireDiagnostic struct {
@@ -203,7 +210,13 @@ func normalizeAnalysis(kind Kind, scene string, value wireAnalysis, evaluation *
 	if value.Coverage == nil {
 		return Snapshot{}, errors.New("report is missing coverage")
 	}
-	if err := value.Coverage.Validate(); err != nil {
+	coverage := analysis.Coverage{
+		ParsedSceneFiles:         value.Coverage.ParsedSceneFiles,
+		ResolvedSceneInstances:   value.Coverage.ResolvedSceneInstances,
+		UnresolvedSceneInstances: value.Coverage.UnresolvedSceneInstances,
+		InheritedScenes:          value.Coverage.InheritedScenes,
+	}
+	if err := coverage.Validate(); err != nil {
 		return Snapshot{}, err
 	}
 	if value.Diagnostics == nil || value.Contributions == nil || len(*value.Contributions) == 0 || value.UniqueEvidence == nil {
@@ -219,7 +232,7 @@ func normalizeAnalysis(kind Kind, scene string, value wireAnalysis, evaluation *
 	}
 	snapshot := Snapshot{
 		Kind: kind, Scene: scene, Reliability: value.Reliability,
-		Metrics: metricSnapshots, Coverage: *value.Coverage,
+		Metrics: metricSnapshots, Coverage: coverage,
 		Diagnostics: diagnostics, Dependencies: dependencies,
 	}
 	if kind == KindCheck {
