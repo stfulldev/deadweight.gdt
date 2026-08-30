@@ -1,0 +1,16 @@
+deadweight.gdt 0.2.0-test
+
+Scene:     res://scenes/root.tscn
+Project:   res://
+Analysis:  PARTIAL
+Accuracy:  lower bound
+
+Dependencies
+res://scenes/root.tscn
+└── instance ×3 [lower_bound] res://models/tree.glb (imported_scene)
+
+Diagnostics
+  WARNING SB1002 res://models/tree.glb: imported PackedScene cannot be expanded statically ×3
+
+WARNING: Expanded metrics are partial. Values marked with + are known
+lower bounds because 3 scene instances could not be analyzed statically.

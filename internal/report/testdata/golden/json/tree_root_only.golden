@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "kind": "tree",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "scene": {
+    "path": "res://scenes/root.tscn"
+  },
+  "configuration": {
+    "present": false,
+    "selection": "absent"
+  },
+  "analysis": {
+    "status": "complete",
+    "reliability": "exact",
+    "metrics": [
+      {
+        "id": "nodes",
+        "value": 2841
+      },
+      {
+        "id": "tree_depth",
+        "value": 17
+      },
+      {
+        "id": "scene_instances",
+        "value": 184
+      },
+      {
+        "id": "mesh_instances",
+        "value": 1024
+      },
+      {
+        "id": "lights",
+        "value": 43
+      },
+      {
+        "id": "shadow_lights",
+        "value": 9
+      },
+      {
+        "id": "external_resources",
+        "value": 218
+      },
+      {
+        "id": "scene_dependencies",
+        "value": 0
+      }
+    ],
+    "coverage": {
+      "parsed_scene_files": 1,
+      "resolved_scene_instances": 184,
+      "unresolved_scene_instances": 0,
+      "inherited_scenes": 0
+    },
+    "diagnostics": [],
+    "contributions": [
+      {
+        "kind": "root",
+        "scene": "res://scenes/root.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2841
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 17,
+            "available": true
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 184
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 1024
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 43
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 9
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union"
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union"
+          }
+        ]
+      }
+    ],
+    "unique_evidence": []
+  },
+  "dependency_tree": {
+    "root": "res://scenes/root.tscn",
+    "entries": []
+  }
+}

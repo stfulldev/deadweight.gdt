@@ -58,6 +58,56 @@ func TestJSONIntegrationSceneInputsArePortableAcrossCheckouts(t *testing.T) {
 	}
 }
 
+func TestTreeJSONIntegrationSceneInputsAndCheckoutsArePortable(t *testing.T) {
+	fixtures, _ := acceptancePaths(t)
+	source := filepath.Join(fixtures, "complete")
+	packageDir := cliPackageDirectory(t)
+	absoluteScene := filepath.Join(source, "nested.tscn")
+	relativeScene, err := filepath.Rel(packageDir, absoluteScene)
+	if err != nil {
+		t.Fatalf("relative fixture scene: %v", err)
+	}
+
+	inputs := []string{"res://nested.tscn", absoluteScene, relativeScene}
+	var want string
+	for _, input := range inputs {
+		stdout := executeJSONSuccess(t, []string{"--project", source, "tree", input, "--format", "json"})
+		if want == "" {
+			want = stdout
+		} else if stdout != want {
+			t.Fatalf("tree input %q changed portable JSON\n--- want ---\n%s--- got ---\n%s", input, want, stdout)
+		}
+	}
+	for _, required := range []string{
+		`"kind": "tree"`, `"root": "res://nested.tscn"`,
+		`"source": "res://nested.tscn"`, `"target": "res://deps/child.tscn"`,
+	} {
+		if !strings.Contains(want, required) {
+			t.Errorf("tree JSON lacks %q: %s", required, want)
+		}
+	}
+
+	checkoutParent := t.TempDir()
+	leftRoot := filepath.Join(checkoutParent, "tree-left")
+	rightRoot := filepath.Join(checkoutParent, "tree-right")
+	copyTree(t, source, leftRoot)
+	copyTree(t, source, rightRoot)
+	left := executeJSONSuccess(t, []string{
+		"--project", leftRoot, "tree", filepath.Join(leftRoot, "nested.tscn"), "--format", "json",
+	})
+	right := executeJSONSuccess(t, []string{
+		"--project", rightRoot, "tree", filepath.Join(rightRoot, "nested.tscn"), "--format", "json",
+	})
+	if left != right {
+		t.Fatalf("checkout roots changed tree JSON\n--- left ---\n%s--- right ---\n%s", left, right)
+	}
+	for _, forbidden := range []string{leftRoot, rightRoot, filepath.ToSlash(leftRoot), filepath.ToSlash(rightRoot), `\`} {
+		if strings.Contains(left, forbidden) || strings.Contains(right, forbidden) {
+			t.Fatalf("tree JSON leaked checkout-specific value %q", forbidden)
+		}
+	}
+}
+
 func TestJSONIntegrationConfigurationProvenanceAndPresetMetadata(t *testing.T) {
 	fixtures, _ := acceptancePaths(t)
 	source := filepath.Join(fixtures, "complete")
