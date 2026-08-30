@@ -1,0 +1,10 @@
+deadweight.gdt 0.2.0-test
+
+Report kind:  inspect
+Scene:        res://levels/city.tscn
+Reliability:  exact -> exact
+
+No semantic changes.
+
+Enforcement
+  DISABLED — comparison only

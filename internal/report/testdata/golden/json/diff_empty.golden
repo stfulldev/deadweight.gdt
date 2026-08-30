@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "kind": "diff",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "diff": {
+    "report_kind": "inspect",
+    "scene": "res://levels/city.tscn",
+    "before_reliability": "exact",
+    "after_reliability": "exact",
+    "changed": false,
+    "metrics": [],
+    "coverage": [],
+    "diagnostics": [],
+    "dependencies": [],
+    "enforcement": {
+      "enabled": false,
+      "status": "PASSED",
+      "triggers": []
+    }
+  }
+}

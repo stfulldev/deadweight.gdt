@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "kind": "diff",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "diff": {
+    "report_kind": "check",
+    "scene": "res://levels/city.tscn",
+    "before_reliability": "exact",
+    "after_reliability": "lower_bound",
+    "changed": true,
+    "metrics": [
+      {
+        "metric": "nodes",
+        "before": 100,
+        "after": 112,
+        "delta": 12,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "unavailable_scene"
+          ],
+          "source": "metric"
+        },
+        "assessment": "regression"
+      },
+      {
+        "metric": "mesh_instances",
+        "before": 50,
+        "after": 48,
+        "delta": -2,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "unavailable_scene"
+          ],
+          "source": "metric"
+        },
+        "assessment": "uncertain"
+      }
+    ],
+    "reliability": {
+      "before": "exact",
+      "after": "lower_bound"
+    },
+    "coverage": [
+      {
+        "field": "parsed_scene_files",
+        "before": 2,
+        "after": 3,
+        "delta": 1
+      }
+    ],
+    "diagnostics": [
+      {
+        "change": "added",
+        "code": "SB1004",
+        "severity": "warning",
+        "message": "resource unavailable",
+        "source": {
+          "path": "res://levels/city.tscn",
+          "line": 4
+        },
+        "before_occurrences": 0,
+        "after_occurrences": 1,
+        "delta": 1
+      },
+      {
+        "change": "occurrences_changed",
+        "code": "SB1001",
+        "severity": "warning",
+        "message": "scene unavailable",
+        "before_occurrences": 1,
+        "after_occurrences": 3,
+        "delta": 2
+      }
+    ],
+    "dependencies": [
+      {
+        "change": "removed",
+        "identity": "res://old.tscn"
+      },
+      {
+        "change": "added",
+        "identity": "res://new.tscn"
+      }
+    ],
+    "evaluation": {
+      "before": {
+        "verdict": "PASSED",
+        "exceeded": 0,
+        "comparisons": [
+          {
+            "metric": "nodes",
+            "observed": 100,
+            "limit": 100,
+            "delta": 0,
+            "passed": true
+          }
+        ]
+      },
+      "after": {
+        "verdict": "FAILED",
+        "exceeded": 1,
+        "comparisons": [
+          {
+            "metric": "nodes",
+            "observed": 112,
+            "limit": 100,
+            "delta": 12,
+            "passed": false
+          }
+        ]
+      }
+    },
+    "enforcement": {
+      "enabled": false,
+      "status": "PASSED",
+      "triggers": []
+    }
+  }
+}
