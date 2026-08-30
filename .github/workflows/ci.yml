@@ -42,3 +42,50 @@ jobs:
         run: go test -race ./...
       - name: Vet
         run: go vet ./...
+
+  official-demo-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.24.x"
+          cache: true
+      - name: Check out pinned official Godot demos
+        uses: actions/checkout@v7
+        with:
+          repository: godotengine/godot-demo-projects
+          ref: 0db80ca5fd22b9a40e05b9bc1e00af867fb7c712
+          path: .external/godot-demo-projects
+          persist-credentials: false
+      - name: Build standalone release candidate
+        run: >-
+          go build -ldflags "-X main.version=0.2.0"
+          -o ./bin/deadweight.gdt ./cmd/deadweight.gdt
+      - name: Verify pinned official demo corpus
+        shell: pwsh
+        run: |
+          $summary = & ./scripts/e2e-godot-demo-projects.ps1 `
+            -DeadweightPath ./bin/deadweight.gdt `
+            -DemoRoot ./.external/godot-demo-projects `
+            -ExpectedCommit 0db80ca5fd22b9a40e05b9bc1e00af867fb7c712
+          if ($LASTEXITCODE -ne 0) {
+            $summary | Write-Output
+            exit $LASTEXITCODE
+          }
+          $summary | Write-Output
+          $expected = @(
+            'CORPUS_COMMIT 0db80ca5fd22b9a40e05b9bc1e00af867fb7c712',
+            'MAIN_SCENES 139',
+            'COMPLETE 103',
+            'PARTIAL 16',
+            'UNSUPPORTED_FORMAT_4 9',
+            'UNSUPPORTED_UID_ROOT 11',
+            'UNEXPECTED_FATAL 0'
+          )
+          foreach ($line in $expected) {
+            if ($summary -notcontains $line) {
+              throw "Official-demo summary lacks expected line: $line"
+            }
+          }
