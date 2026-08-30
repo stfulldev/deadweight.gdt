@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "diff",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "diff": {
+    "report_kind": "inspect",
+    "scene": "res://root.tscn",
+    "before_reliability": "exact",
+    "after_reliability": "exact",
+    "changed": true,
+    "metrics": [
+      {
+        "metric": "nodes",
+        "before": 6,
+        "after": 9,
+        "delta": 3,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "assessment": "regression"
+      },
+      {
+        "metric": "scene_instances",
+        "before": 2,
+        "after": 3,
+        "delta": 1,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "assessment": "regression"
+      },
+      {
+        "metric": "mesh_instances",
+        "before": 2,
+        "after": 3,
+        "delta": 1,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "assessment": "regression"
+      },
+      {
+        "metric": "lights",
+        "before": 1,
+        "after": 2,
+        "delta": 1,
+        "before_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "after_confidence": {
+          "reliability": "exact",
+          "reasons": [],
+          "source": "metric"
+        },
+        "assessment": "regression"
+      }
+    ],
+    "coverage": [
+      {
+        "field": "resolved_scene_instances",
+        "before": 2,
+        "after": 3,
+        "delta": 1
+      }
+    ],
+    "diagnostics": [],
+    "dependencies": [],
+    "enforcement": {
+      "enabled": false,
+      "status": "PASSED",
+      "triggers": []
+    }
+  }
+}

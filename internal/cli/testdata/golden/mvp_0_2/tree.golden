@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "kind": "tree",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "scene": {
+    "path": "res://root.tscn"
+  },
+  "configuration": {
+    "present": true,
+    "selection": "implicit",
+    "path": "res://.deadweight.gdt.json"
+  },
+  "analysis": {
+    "status": "complete",
+    "reliability": "exact",
+    "metrics": [
+      {
+        "id": "nodes",
+        "value": 6,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "tree_depth",
+        "value": 3,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "scene_instances",
+        "value": 2,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "mesh_instances",
+        "value": 2,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "lights",
+        "value": 1,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "shadow_lights",
+        "value": 1,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "external_resources",
+        "value": 2,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      },
+      {
+        "id": "scene_dependencies",
+        "value": 1,
+        "confidence": {
+          "reliability": "exact",
+          "reasons": []
+        }
+      }
+    ],
+    "coverage": {
+      "parsed_scene_files": 2,
+      "resolved_scene_instances": 2,
+      "unresolved_scene_instances": 0,
+      "inherited_scenes": 0
+    },
+    "diagnostics": [],
+    "contributions": [
+      {
+        "kind": "scene",
+        "scene": "res://child.tscn",
+        "declaring_scene": "res://root.tscn",
+        "mount_path": "ChildA",
+        "mount_depth": 2,
+        "resource_id": "1_child",
+        "raw_target": "res://child.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 3,
+            "available": true,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "scene",
+        "scene": "res://child.tscn",
+        "declaring_scene": "res://root.tscn",
+        "mount_path": "ChildB",
+        "mount_depth": 2,
+        "resource_id": "1_child",
+        "raw_target": "res://child.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 3,
+            "available": true,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "root",
+        "scene": "res://root.tscn",
+        "occurrences": 1,
+        "reliability": "exact",
+        "metrics": [
+          {
+            "id": "nodes",
+            "aggregation": "additive",
+            "value": 2,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "tree_depth",
+            "aggregation": "maximum",
+            "value": 2,
+            "available": true,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_instances",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "mesh_instances",
+            "aggregation": "additive",
+            "value": 0,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "lights",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "shadow_lights",
+            "aggregation": "additive",
+            "value": 1,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "external_resources",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          },
+          {
+            "id": "scene_dependencies",
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
+          }
+        ]
+      }
+    ],
+    "unique_evidence": [
+      {
+        "metric": "external_resources",
+        "identity": "res://assets/shared.png",
+        "referrers": [
+          {
+            "scene": "res://child.tscn",
+            "resource_id": "1_texture",
+            "raw_target": "res://assets/shared.png",
+            "occurrences": 1
+          },
+          {
+            "scene": "res://root.tscn",
+            "resource_id": "2_texture",
+            "raw_target": "res://assets/shared.png",
+            "occurrences": 1
+          }
+        ]
+      },
+      {
+        "metric": "external_resources",
+        "identity": "res://child.tscn",
+        "referrers": [
+          {
+            "scene": "res://root.tscn",
+            "resource_id": "1_child",
+            "raw_target": "res://child.tscn",
+            "occurrences": 1
+          }
+        ]
+      },
+      {
+        "metric": "scene_dependencies",
+        "identity": "res://child.tscn",
+        "referrers": [
+          {
+            "scene": "res://root.tscn",
+            "resource_id": "1_child",
+            "raw_target": "res://child.tscn",
+            "edge_kind": "instance",
+            "occurrences": 2
+          }
+        ]
+      }
+    ]
+  },
+  "dependency_tree": {
+    "root": "res://root.tscn",
+    "entries": [
+      {
+        "depth": 1,
+        "source": "res://root.tscn",
+        "target": "res://child.tscn",
+        "kind": "instance",
+        "resolved": true,
+        "occurrences": 2,
+        "reliability": "exact",
+        "back_reference": false,
+        "resource_id": "1_child",
+        "raw_target": "res://child.tscn"
+      }
+    ]
+  }
+}

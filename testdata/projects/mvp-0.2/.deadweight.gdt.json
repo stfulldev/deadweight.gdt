@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "fail_on_partial": false,
+  "budgets": {
+    "nodes": 20,
+    "lights": 5
+  },
+  "profiles": {
+    "shipping": {
+      "extends": "steam-deck",
+      "name": "Shipping",
+      "description": "MVP 0.2 acceptance policy",
+      "platform": "handheld",
+      "quality": "balanced",
+      "budgets": {
+        "nodes": 12,
+        "lights": 4
+      }
+    }
+  }
+}

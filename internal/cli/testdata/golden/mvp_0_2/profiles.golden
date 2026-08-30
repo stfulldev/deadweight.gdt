@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "profiles",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "configuration": {
+    "present": true,
+    "selection": "implicit",
+    "path": "res://.deadweight.gdt.json"
+  },
+  "profiles": {
+    "entries": [
+      {
+        "id": "shipping",
+        "extends": "steam-deck",
+        "name": "Shipping",
+        "description": "MVP 0.2 acceptance policy"
+      }
+    ]
+  }
+}
