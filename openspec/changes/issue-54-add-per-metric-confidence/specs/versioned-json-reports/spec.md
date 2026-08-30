@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: JSON metrics expose confidence and reasons
-Every root metric object and every contribution metric object in a successful schema-version-one inspect, check, or tree document SHALL contain a `confidence` object with required `reliability` and `reasons` fields. Reliability SHALL be `exact`, `lower_bound`, or `approximate`; reasons SHALL be a deterministic duplicate-free array of stable machine-readable reason codes; and every frozen metric SHALL remain present in canonical order. This compatible extension MUST NOT change metric IDs, values, aggregation modes, availability semantics, report-wide reliability, contribution-wide reliability, or schema version.
+Every root metric object and every contribution metric object emitted by the current producer in a successful schema-version-one inspect, check, or tree document SHALL contain a `confidence` object with required `reliability` and `reasons` fields. Reliability SHALL be `exact`, `lower_bound`, or `approximate`; reasons SHALL be a deterministic duplicate-free array of stable machine-readable reason codes; and every frozen metric SHALL remain present in canonical order. The field SHALL remain optional in the version-one schema so older version-one documents continue to validate. This compatible extension MUST NOT change metric IDs, values, aggregation modes, availability semantics, report-wide reliability, contribution-wide reliability, or schema version.
 
 #### Scenario: Exact metric JSON
 - **WHEN** a metric is unaffected by unavailable or approximate evidence
@@ -20,3 +20,6 @@ Every root metric object and every contribution metric object in a successful sc
 - **WHEN** an inspect, check, or tree report with per-metric confidence is validated against the committed version-one schema
 - **THEN** every root and contribution metric confidence object satisfies the required enum and reason-array constraints
 
+#### Scenario: Earlier version-one document
+- **WHEN** a valid document from an earlier version-one producer has no confidence fields
+- **THEN** it continues to validate against the evolved version-one schema

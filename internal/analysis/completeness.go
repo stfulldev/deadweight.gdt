@@ -5,14 +5,16 @@ import (
 	"sort"
 
 	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
+	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
 )
 
 type completionResult struct {
-	Status      AnalysisStatus
-	Reliability Reliability
-	Coverage    Coverage
-	Diagnostics []diagnostic.Diagnostic
+	Status           AnalysisStatus
+	Reliability      Reliability
+	MetricConfidence MetricConfidence
+	Coverage         Coverage
+	Diagnostics      []diagnostic.Diagnostic
 }
 
 type diagnosticGroupKey struct {
@@ -64,8 +66,7 @@ func finalizeCompleteness(
 	displays := graphDisplayPaths(graph)
 	groups := make(map[diagnosticGroupKey]diagnosticGroup)
 	coveredResources := make(map[resourceDeclarationKey]struct{})
-	lowerBound := false
-	approximate := false
+	metricConfidence := ExactMetricConfidence()
 
 	for _, evidence := range summary.Unresolved {
 		if err := validateUnresolvedEvidence(evidence); err != nil {
@@ -75,7 +76,13 @@ func finalizeCompleteness(
 		if err := addDiagnosticGroup(groups, key, item, evidence.Occurrences); err != nil {
 			return completionResult{}, err
 		}
-		lowerBound = true
+		if err := metricConfidence.merge(
+			allMetricNames(),
+			ReliabilityLowerBound,
+			confidenceReasonForUnresolved(evidence),
+		); err != nil {
+			return completionResult{}, err
+		}
 		if evidence.ResourceID != "" {
 			coveredResources[resourceDeclarationKey{
 				declaringScene: evidence.DeclaringScene,
@@ -106,7 +113,13 @@ func finalizeCompleteness(
 				resourceID:     evidence.BaseResourceID,
 			}] = struct{}{}
 		}
-		approximate = true
+		if err := metricConfidence.merge(
+			allMetricNames(),
+			ReliabilityApproximate,
+			ConfidenceInheritedScene,
+		); err != nil {
+			return completionResult{}, err
+		}
 	}
 
 	for _, finding := range summary.ParentFindings {
@@ -117,7 +130,13 @@ func finalizeCompleteness(
 		if err := addDiagnosticGroup(groups, key, item, finding.Occurrences); err != nil {
 			return completionResult{}, err
 		}
-		lowerBound = true
+		if err := metricConfidence.merge(
+			[]metrics.Name{metrics.TreeDepth},
+			ReliabilityLowerBound,
+			ConfidenceUnsupportedParent,
+		); err != nil {
+			return completionResult{}, err
+		}
 	}
 	if summary.DepthPartial && len(summary.ParentFindings) == 0 {
 		file := displayPath(displays, graph.RootCanonical)
@@ -136,7 +155,13 @@ func finalizeCompleteness(
 		if err := addDiagnosticGroup(groups, key, item, 1); err != nil {
 			return completionResult{}, err
 		}
-		lowerBound = true
+		if err := metricConfidence.merge(
+			[]metrics.Name{metrics.TreeDepth},
+			ReliabilityLowerBound,
+			ConfidenceUnsupportedParent,
+		); err != nil {
+			return completionResult{}, err
+		}
 	}
 
 	for _, identity := range summary.ExternalResources {
@@ -156,14 +181,19 @@ func finalizeCompleteness(
 			resourceID:     identity.ResourceID,
 		}
 		if _, covered := coveredResources[declaration]; covered {
-			lowerBound = true
 			continue
 		}
 		item, key := resourceDiagnostic(identity, displayPath(displays, identity.DeclaringScene))
 		if err := addDiagnosticGroup(groups, key, item, 1); err != nil {
 			return completionResult{}, err
 		}
-		lowerBound = true
+		if err := metricConfidence.merge(
+			[]metrics.Name{metrics.ExternalResources},
+			ReliabilityLowerBound,
+			confidenceReasonForResource(identity.ResolutionReason),
+		); err != nil {
+			return completionResult{}, err
+		}
 	}
 
 	if err := coverage.Validate(); err != nil {
@@ -174,18 +204,16 @@ func finalizeCompleteness(
 		return completionResult{}, err
 	}
 
+	reliability := metricConfidence.Reliability()
 	result := completionResult{
-		Status:      AnalysisComplete,
-		Reliability: ReliabilityExact,
-		Coverage:    coverage,
-		Diagnostics: diagnostics,
+		Status:           AnalysisComplete,
+		Reliability:      reliability,
+		MetricConfidence: metricConfidence,
+		Coverage:         coverage,
+		Diagnostics:      diagnostics,
 	}
-	if lowerBound || approximate {
+	if reliability != ReliabilityExact {
 		result.Status = AnalysisPartial
-		result.Reliability = ReliabilityLowerBound
-	}
-	if approximate {
-		result.Reliability = ReliabilityApproximate
 	}
 	if err := validateCompletion(result); err != nil {
 		return completionResult{}, err
@@ -200,6 +228,12 @@ func validateCompletion(result completionResult) error {
 	}
 	if !result.Reliability.Valid() {
 		return fmt.Errorf("invalid analysis reliability %q", result.Reliability)
+	}
+	if err := result.MetricConfidence.Validate(); err != nil {
+		return err
+	}
+	if summary := result.MetricConfidence.Reliability(); result.Reliability != summary {
+		return fmt.Errorf("analysis reliability %q does not match metric summary %q", result.Reliability, summary)
 	}
 	if (result.Status == AnalysisComplete) != (result.Reliability == ReliabilityExact) {
 		return fmt.Errorf(

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
 	"github.com/stfulldev/deadweight.gdt/internal/tscn"
 )
@@ -113,6 +114,7 @@ func (analyzer *RecursiveAnalyzer) Analyze(root project.ResolvedPath) (Recursive
 		ParsedSceneFiles: parsedSceneFiles,
 		Status:           completion.Status,
 		Reliability:      completion.Reliability,
+		MetricConfidence: completion.MetricConfidence,
 		Coverage:         completion.Coverage,
 		Diagnostics:      completion.Diagnostics,
 	}
@@ -221,7 +223,10 @@ func (state *invocationState) expandScene(path project.ResolvedPath) (ExpandedSu
 		return ExpandedSummary{}, err
 	}
 
-	builder := newSummaryBuilder(local, path)
+	builder, err := newSummaryBuilder(local, path)
+	if err != nil {
+		return ExpandedSummary{}, err
+	}
 	resolvedResources := state.resolveSceneResources(path, local.ExternalResources)
 	builder.unionResources(resourceIdentities(path, resolvedResources))
 	if local.InheritedRoot != nil {
@@ -384,19 +389,31 @@ func (state *invocationState) loadLocalSummary(path project.ResolvedPath) (Local
 	return cloneLocalSummary(local), nil
 }
 
-func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBuilder {
+func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) (*summaryBuilder, error) {
 	summary := ExpandedSummary{
 		Metrics:      local.Metrics,
 		DepthPartial: local.DepthPartial,
 	}
 	summary.Metrics.ExternalResources = 0
 	summary.Metrics.SceneDependencies = 0
-	reliability := ReliabilityExact
+	metricConfidence := ExactMetricConfidence()
 	if local.DepthPartial {
-		reliability = ReliabilityLowerBound
+		if err := metricConfidence.merge(
+			[]metrics.Name{metrics.TreeDepth},
+			ReliabilityLowerBound,
+			ConfidenceUnsupportedParent,
+		); err != nil {
+			return nil, err
+		}
 	}
 	if local.InheritedRoot != nil {
-		reliability = ReliabilityApproximate
+		if err := metricConfidence.merge(
+			allMetricNames(),
+			ReliabilityApproximate,
+			ConfidenceInheritedScene,
+		); err != nil {
+			return nil, err
+		}
 	}
 	summary.Contributions = []SceneContribution{{
 		Kind:           ContributionRoot,
@@ -410,8 +427,9 @@ func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBu
 			Lights:        local.Metrics.Lights,
 			ShadowLights:  local.Metrics.ShadowLights,
 		},
-		DepthCandidate: directLocalDepth(local.Nodes),
-		Reliability:    reliability,
+		DepthCandidate:   directLocalDepth(local.Nodes),
+		Reliability:      metricConfidence.Reliability(),
+		MetricConfidence: metricConfidence,
 	}}
 	for _, finding := range local.Findings {
 		summary.ParentFindings = append(summary.ParentFindings, SceneParentFinding{
@@ -427,7 +445,7 @@ func newSummaryBuilder(local LocalSummary, path project.ResolvedPath) *summaryBu
 		path:         path,
 		resources:    make(map[ResourceIdentity]struct{}),
 		dependencies: make(map[string]struct{}),
-	}
+	}, nil
 }
 
 func directLocalDepth(nodes []OrdinaryNode) OptionalDepth {
@@ -652,6 +670,14 @@ func (builder *summaryBuilder) addUnresolved(evidence UnresolvedInstance) error 
 		next.DepthPartial = true
 	}
 	next.Unresolved = append(next.Unresolved, evidence)
+	metricConfidence := ExactMetricConfidence()
+	if err := metricConfidence.merge(
+		allMetricNames(),
+		ReliabilityLowerBound,
+		confidenceReasonForUnresolved(evidence),
+	); err != nil {
+		return err
+	}
 	next.Contributions = append(next.Contributions, SceneContribution{
 		Kind:             ContributionUnresolved,
 		SceneCanonical:   evidence.TargetCanonical,
@@ -670,8 +696,9 @@ func (builder *summaryBuilder) addUnresolved(evidence UnresolvedInstance) error 
 			Nodes:          evidence.Occurrences,
 			SceneInstances: evidence.Occurrences,
 		},
-		DepthCandidate: evidence.MountDepth,
-		Reliability:    ReliabilityLowerBound,
+		DepthCandidate:   evidence.MountDepth,
+		Reliability:      metricConfidence.Reliability(),
+		MetricConfidence: metricConfidence,
 	})
 	builder.summary = next
 
@@ -700,7 +727,14 @@ func (builder *summaryBuilder) addUnsupportedInheritance(evidence InheritedTarge
 	if !next.Contributions[0].DepthCandidate.Known || next.Contributions[0].DepthCandidate.Value < 1 {
 		next.Contributions[0].DepthCandidate = OptionalDepth{Value: 1, Known: true}
 	}
-	next.Contributions[0].Reliability = ReliabilityApproximate
+	if err := next.Contributions[0].MetricConfidence.merge(
+		allMetricNames(),
+		ReliabilityApproximate,
+		ConfidenceInheritedScene,
+	); err != nil {
+		return err
+	}
+	next.Contributions[0].Reliability = next.Contributions[0].MetricConfidence.Reliability()
 	builder.summary = next
 
 	return nil
@@ -754,7 +788,14 @@ func (builder *summaryBuilder) applyInheritedBase(
 			applied.RawTarget = evidence.BaseRawTarget
 			applied.Classification = TargetInheritedScene
 		}
-		applied.Reliability = ReliabilityApproximate
+		if err := applied.MetricConfidence.merge(
+			allMetricNames(),
+			ReliabilityApproximate,
+			ConfidenceInheritedScene,
+		); err != nil {
+			return err
+		}
+		applied.Reliability = applied.MetricConfidence.Reliability()
 		next.Contributions = append(next.Contributions, applied)
 	}
 
@@ -901,7 +942,14 @@ func (builder *summaryBuilder) applyResolvedWithMounts(
 				}
 			} else {
 				applied.DepthCandidate = OptionalDepth{}
-				applied.Reliability = conservativeReliability(applied.Reliability, ReliabilityLowerBound)
+				if err := applied.MetricConfidence.merge(
+					[]metrics.Name{metrics.TreeDepth},
+					ReliabilityLowerBound,
+					ConfidenceUnsupportedParent,
+				); err != nil {
+					return err
+				}
+				applied.Reliability = applied.MetricConfidence.Reliability()
 			}
 			next.Contributions = append(next.Contributions, applied)
 		}
@@ -996,6 +1044,9 @@ func (builder *summaryBuilder) finish() (ExpandedSummary, error) {
 	}
 	builder.summary.Contributions = contributions
 	builder.summary.ExternalResources = builder.sortedResources()
+	if err := qualifyContributionConfidence(&builder.summary); err != nil {
+		return ExpandedSummary{}, err
+	}
 	builder.summary.Dependencies = make([]string, 0, len(builder.dependencies))
 	for dependency := range builder.dependencies {
 		builder.summary.Dependencies = append(builder.summary.Dependencies, dependency)

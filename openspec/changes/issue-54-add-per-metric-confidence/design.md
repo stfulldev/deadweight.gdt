@@ -39,7 +39,7 @@ Report-wide and row-wide reliability will be recomputed as the conservative maxi
 
 ### Project additive JSON fields within schema version one
 
-Root and contribution metric objects will gain a required `confidence` object in producer output and the committed schema. The object contains required reliability plus an owned reason array. Existing fields retain their names and meanings, so tolerant version-one consumers remain compatible. Checked-in goldens and schema validation tests will cover inspect, check, and tree kinds.
+Root and contribution metric objects will always gain a `confidence` object in producer output. The object contains required reliability plus an owned reason array. The version-one schema will describe the field but keep it optional so documents emitted by earlier version-one producers continue to validate; current producer tests will separately require it on every metric. Existing fields retain their names and meanings, so tolerant version-one consumers remain compatible. Checked-in goldens and schema validation tests will cover inspect, check, and tree kinds.
 
 ### Keep text concise for mixed confidence
 
@@ -47,7 +47,7 @@ Metric values and check actuals will use their own confidence marker. A shared f
 
 ## Risks / Trade-offs
 
-- [Adding required nested JSON metadata can expose strict consumer assumptions] → Keep schema version and all existing fields stable, document the additive contract, and validate every emitted kind against the checked-in schema.
+- [Adding producer-required nested JSON metadata can expose strict consumer assumptions] → Keep it optional in the version-one schema for older documents, keep all existing fields stable, document the additive contract, and verify every current emitted metric contains it.
 - [Impact rules can accidentally overstate exactness] → Encode the matrix centrally, default new partial evidence to conservative handling, and test every frozen metric across ordinary-resource, parent, scene-closure, and inheritance cases.
 - [Owned reason slices can alias cached summaries] → Deep-clone metric confidence in recursive results and contribution collections and add mutation tests.
 - [Text qualification can become noisy] → Render it only for classifications that differ from the aggregate summary and keep canonical one-line entries.

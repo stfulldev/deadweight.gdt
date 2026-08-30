@@ -51,7 +51,8 @@ func Check(result application.CheckResult, options Options) (string, error) {
 		if !comparison.Passed {
 			verdict = "FAIL"
 		}
-		actual := formatMetric(comparison.Actual, result.Inspect.Analysis.Reliability)
+		confidence, _ := result.Inspect.Analysis.MetricConfidence.Get(comparison.Metric)
+		actual := formatMetric(comparison.Actual, confidence.Reliability)
 		fmt.Fprintf(
 			&output,
 			"%-26s %10s %10s   %s",
@@ -65,6 +66,11 @@ func Check(result application.CheckResult, options Options) (string, error) {
 		}
 		output.WriteByte('\n')
 	}
+	writeMetricConfidenceQualifications(
+		&output,
+		result.Inspect.Analysis.MetricConfidence,
+		result.Inspect.Analysis.Reliability,
+	)
 
 	writeCheckSummary(&output, result, style)
 	if result.Evaluation.Status != budget.StatusIncomplete {

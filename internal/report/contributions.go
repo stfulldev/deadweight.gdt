@@ -11,18 +11,19 @@ import (
 )
 
 type projectedContribution struct {
-	SourceIndex int
-	Kind        analysis.ContributionKind
-	Scene       string
-	Declaring   string
-	MountPath   string
-	ResourceID  string
-	RawTarget   string
-	Reason      analysis.TargetClassification
-	Occurrences int64
-	Reliability analysis.Reliability
-	Value       int64
-	ValueKnown  bool
+	SourceIndex       int
+	Kind              analysis.ContributionKind
+	Scene             string
+	Declaring         string
+	MountPath         string
+	ResourceID        string
+	RawTarget         string
+	Reason            analysis.TargetClassification
+	Occurrences       int64
+	Reliability       analysis.Reliability
+	MetricReliability analysis.Reliability
+	Value             int64
+	ValueKnown        bool
 }
 
 func validateContributionSelection(selection ContributionSelection) error {
@@ -79,8 +80,12 @@ func topContributions(
 			Reason:      item.Classification,
 			Occurrences: item.Occurrences,
 			Reliability: item.Reliability,
-			Value:       value,
-			ValueKnown:  known,
+			MetricReliability: func() analysis.Reliability {
+				confidence, _ := item.MetricConfidence.Get(selection.Metric)
+				return confidence.Reliability
+			}(),
+			Value:      value,
+			ValueKnown: known,
 		})
 	}
 
@@ -187,7 +192,7 @@ func writeTopContributors(
 	for _, item := range items {
 		value := "unknown"
 		if item.ValueKnown {
-			value = formatMetric(item.Value, item.Reliability)
+			value = formatMetric(item.Value, item.MetricReliability)
 		}
 		context := "root"
 		if item.Declaring != "" {

@@ -158,6 +158,16 @@ func validateInspect(result application.InspectResult) error {
 	if !result.Analysis.Reliability.Valid() {
 		return fmt.Errorf("invalid analysis reliability %q", result.Analysis.Reliability)
 	}
+	if err := result.Analysis.MetricConfidence.Validate(); err != nil {
+		return err
+	}
+	if summary := result.Analysis.MetricConfidence.Reliability(); result.Analysis.Reliability != summary {
+		return fmt.Errorf(
+			"analysis reliability %q does not match metric confidence summary %q",
+			result.Analysis.Reliability,
+			summary,
+		)
+	}
 	if err := result.Analysis.Summary.Metrics.Validate(); err != nil {
 		return err
 	}
@@ -182,13 +192,53 @@ func writeMetricBlock(
 	title string,
 	names []metrics.Name,
 	values metrics.Values,
-	reliability analysis.Reliability,
+	confidence analysis.MetricConfidence,
 ) {
 	output.WriteString(title)
 	output.WriteByte('\n')
 	for _, name := range names {
 		value, _ := values.Get(name)
-		fmt.Fprintf(output, "  %-26s %10s\n", name.Label(), formatMetric(value, reliability))
+		metricConfidence, _ := confidence.Get(name)
+		fmt.Fprintf(
+			output,
+			"  %-26s %10s\n",
+			name.Label(),
+			formatMetric(value, metricConfidence.Reliability),
+		)
+	}
+}
+
+func writeMetricConfidenceQualifications(
+	output *strings.Builder,
+	confidence analysis.MetricConfidence,
+	summary analysis.Reliability,
+) {
+	entries := confidence.Entries()
+	mixed := false
+	for _, entry := range entries {
+		if entry.Confidence.Reliability != summary {
+			mixed = true
+			break
+		}
+	}
+	if !mixed {
+		return
+	}
+
+	output.WriteString("\nMetric confidence\n")
+	for _, entry := range entries {
+		if entry.Confidence.Reliability == summary {
+			continue
+		}
+		reasons := make([]string, 0, len(entry.Confidence.Reasons))
+		for _, reason := range entry.Confidence.Reasons {
+			reasons = append(reasons, string(reason))
+		}
+		qualification := string(entry.Confidence.Reliability)
+		if len(reasons) > 0 {
+			qualification += " (" + strings.Join(reasons, ", ") + ")"
+		}
+		fmt.Fprintf(output, "  %-26s %s\n", entry.Metric.Label(), qualification)
 	}
 }
 

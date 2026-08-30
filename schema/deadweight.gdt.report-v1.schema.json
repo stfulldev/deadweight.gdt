@@ -217,12 +217,50 @@
         "scene_dependencies"
       ]
     },
+    "confidenceReason": {
+      "enum": [
+        "unresolved_scene_instance",
+        "imported_scene",
+        "unsupported_scene",
+        "subresource_scene",
+        "placeholder_instance",
+        "unavailable_scene",
+        "unavailable_resource",
+        "unsupported_resource_path",
+        "inherited_scene",
+        "unsupported_parent"
+      ]
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["reliability", "reasons"],
+      "properties": {
+        "reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "reasons": {
+          "type": "array",
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/confidenceReason" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "reliability": { "const": "exact" } },
+            "required": ["reliability"]
+          },
+          "then": { "properties": { "reasons": { "maxItems": 0 } } },
+          "else": { "properties": { "reasons": { "minItems": 1 } } }
+        }
+      ]
+    },
     "metric": {
       "type": "object",
       "required": ["id", "value"],
       "properties": {
         "id": { "$ref": "#/$defs/metricName" },
-        "value": { "$ref": "#/$defs/nonNegativeInt64" }
+        "value": { "$ref": "#/$defs/nonNegativeInt64" },
+        "confidence": { "$ref": "#/$defs/confidence" }
       }
     },
     "metrics": {
@@ -249,7 +287,8 @@
         "id": { "$ref": "#/$defs/metricName" },
         "aggregation": { "enum": ["additive", "maximum", "unique_union"] },
         "value": { "$ref": "#/$defs/nonNegativeInt64" },
-        "available": { "type": "boolean" }
+        "available": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/confidence" }
       },
       "allOf": [
         {

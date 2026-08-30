@@ -89,10 +89,11 @@ type SceneContribution struct {
 	RawTarget        string
 	Classification   TargetClassification
 
-	Occurrences    int64
-	Values         ContributionValues
-	DepthCandidate OptionalDepth
-	Reliability    Reliability
+	Occurrences      int64
+	Values           ContributionValues
+	DepthCandidate   OptionalDepth
+	Reliability      Reliability
+	MetricConfidence MetricConfidence
 }
 
 // Validate checks one contribution without depending on presentation format.
@@ -102,6 +103,12 @@ func (item SceneContribution) Validate() error {
 	}
 	if !item.Reliability.Valid() {
 		return fmt.Errorf("invalid contribution reliability %q", item.Reliability)
+	}
+	if err := item.MetricConfidence.Validate(); err != nil {
+		return err
+	}
+	if summary := item.MetricConfidence.Reliability(); item.Reliability != summary {
+		return fmt.Errorf("contribution reliability %q does not match metric summary %q", item.Reliability, summary)
 	}
 	if item.Occurrences <= 0 {
 		return fmt.Errorf("contribution occurrences must be positive, got %d", item.Occurrences)
@@ -239,6 +246,7 @@ func compactContributions(items []SceneContribution) ([]SceneContribution, error
 		key := keyForContribution(item)
 		current, exists := compacted[key]
 		if !exists {
+			item.MetricConfidence = cloneMetricConfidence(item.MetricConfidence)
 			compacted[key] = item
 			continue
 		}
@@ -254,6 +262,13 @@ func compactContributions(items []SceneContribution) ([]SceneContribution, error
 			current.DepthCandidate = item.DepthCandidate
 		}
 		current.Reliability = conservativeReliability(current.Reliability, item.Reliability)
+		for _, name := range metrics.OrderedNames() {
+			addition, _ := item.MetricConfidence.Get(name)
+			if err := current.MetricConfidence.merge([]metrics.Name{name}, addition.Reliability, addition.Reasons...); err != nil {
+				return nil, err
+			}
+		}
+		current.Reliability = current.MetricConfidence.Reliability()
 		compacted[key] = current
 	}
 
@@ -338,6 +353,7 @@ func scaleContribution(item SceneContribution, multiplicity int64) (SceneContrib
 		return SceneContribution{}, &OverflowError{Operation: ArithmeticMultiply, Left: item.Occurrences, Right: multiplicity}
 	}
 	result := item
+	result.MetricConfidence = cloneMetricConfidence(item.MetricConfidence)
 	var err error
 	result.Occurrences, err = checkedMultiply(item.Occurrences, multiplicity)
 	if err != nil {
@@ -375,7 +391,16 @@ func conservativeReliability(left, right Reliability) Reliability {
 }
 
 func cloneContributions(items []SceneContribution) []SceneContribution {
-	return append([]SceneContribution(nil), items...)
+	if items == nil {
+		return nil
+	}
+	cloned := make([]SceneContribution, len(items))
+	for index, item := range items {
+		cloned[index] = item
+		cloned[index].MetricConfidence = cloneMetricConfidence(item.MetricConfidence)
+	}
+
+	return cloned
 }
 
 func cloneUniqueEvidence(items []UniqueEvidence) []UniqueEvidence {
