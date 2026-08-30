@@ -21,4 +21,4 @@
 - [x] 4.1 Run targeted parser, analysis, CLI, corpus-runner, acceptance-golden, and JSON-schema tests plus `git diff --check`; verify every new scenario and unchanged compatibility contract passes deterministically.
 - [x] 4.2 Run `go build ./...`, `go test ./...`, `go test -race ./...`, `go vet ./...`, `golangci-lint run`, and `openspec validate --all --strict`; verify every repository-controlled gate passes without installing or invoking Godot.
 - [x] 4.3 Commit production feature changes separately from test/fixture changes, keep documentation/tooling evidence separately reviewable where practical, push every commit, and update Draft PR #73 with exact local and hosted corpus/gate evidence.
-- [ ] 4.4 Sync and archive `issue-67-support-godot-format-4-text-scenes`, commit the archive separately, verify strict OpenSpec status and local/remote head equality, and mark PR #73 ready only after every task and hosted check passes.
+- [x] 4.4 Sync and archive `issue-67-support-godot-format-4-text-scenes`, commit the archive separately, verify strict OpenSpec status and local/remote head equality, and mark PR #73 ready only after every task and hosted check passes.
