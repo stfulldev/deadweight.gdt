@@ -123,6 +123,68 @@ func TestInspectIgnoresConfiguredFailOnPartial(t *testing.T) {
 	}
 }
 
+func TestTreeReusesSingleSceneAnalysisWithoutPolicyOrBudgets(t *testing.T) {
+	t.Parallel()
+
+	analysisCalls := 0
+	policyCalls := 0
+	dependencies := sceneDependencies(
+		config.Config{Version: config.CurrentVersion, FailOnPartial: true},
+		true,
+		partialAnalysis(metrics.Values{Nodes: 2}),
+	)
+	dependencies.Analyze = func(SceneResolver, project.ResolvedPath) (analysis.RecursiveResult, error) {
+		analysisCalls++
+		return partialAnalysis(metrics.Values{Nodes: 2}), nil
+	}
+	dependencies.ResolvePolicy = func(string, config.Config, policy.Selector, []string) (policy.Effective, error) {
+		policyCalls++
+		return policy.Effective{}, errors.New("tree must not resolve policy")
+	}
+	dependencies.ResolvePartial = func(bool, budget.PartialOverride) (bool, error) {
+		policyCalls++
+		return false, errors.New("tree must not resolve partial policy")
+	}
+	dependencies.Evaluate = func(metrics.Values, budget.Limits, analysis.Reliability, bool) (budget.Evaluation, error) {
+		policyCalls++
+		return budget.Evaluation{}, errors.New("tree must not evaluate budgets")
+	}
+
+	application := New(dependencies)
+	for _, scene := range []string{"/game/root.tscn", "root.tscn", "res://root.tscn"} {
+		result, err := application.Tree(TreeRequest{SceneRequest: SceneRequest{
+			Scene:   scene,
+			Project: "/game",
+			Config:  "/game/policy.json",
+		}})
+		if err != nil {
+			t.Fatalf("Tree(%q) error = %v", scene, err)
+		}
+		if result.Inspect.Scene.Original != scene ||
+			result.Inspect.Analysis.Status != analysis.AnalysisPartial ||
+			!result.Inspect.ConfigPresent {
+			t.Fatalf("Tree(%q) result = %#v", scene, result)
+		}
+	}
+	if analysisCalls != 3 || policyCalls != 0 {
+		t.Fatalf("analysis/policy calls = %d / %d", analysisCalls, policyCalls)
+	}
+}
+
+func TestTreeReturnsZeroResultForFatalAnalysis(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("cycle")
+	dependencies := sceneDependencies(config.Config{}, false, completeAnalysis(metrics.Values{}))
+	dependencies.Analyze = func(SceneResolver, project.ResolvedPath) (analysis.RecursiveResult, error) {
+		return analysis.RecursiveResult{}, wantErr
+	}
+	result, err := New(dependencies).Tree(TreeRequest{SceneRequest: SceneRequest{Scene: "res://root.tscn"}})
+	if !errors.Is(err, wantErr) || !reflect.DeepEqual(result, TreeResult{}) {
+		t.Fatalf("Tree() result/error = %#v / %v", result, err)
+	}
+}
+
 func TestCheckForwardsOverridesAndReturnsOwnedResult(t *testing.T) {
 	t.Parallel()
 
@@ -449,6 +511,9 @@ func TestNilApplicationAndPresetLoadFailureReturnErrors(t *testing.T) {
 	var nilApplication *Application
 	if _, err := nilApplication.Inspect(InspectRequest{}); err == nil {
 		t.Fatal("nil Inspect() error = nil")
+	}
+	if _, err := nilApplication.Tree(TreeRequest{}); err == nil {
+		t.Fatal("nil Tree() error = nil")
 	}
 	if _, err := nilApplication.ListPresets(); err == nil {
 		t.Fatal("nil ListPresets() error = nil")

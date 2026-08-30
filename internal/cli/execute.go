@@ -17,9 +17,10 @@ type BuildInfo struct {
 	Version string
 }
 
-// Application is the command-facing boundary for the four MVP flows.
+// Application is the command-facing boundary for the standalone CLI flows.
 type Application interface {
 	Inspect(application.InspectRequest) (application.InspectResult, error)
+	Tree(application.TreeRequest) (application.TreeResult, error)
 	Check(application.CheckRequest) (application.CheckResult, error)
 	ListPresets() (application.PresetListResult, error)
 	ShowPreset(string) (application.PresetShowResult, error)
@@ -144,6 +145,7 @@ func NewRootWithApplicationAndRuntime(
 
 	root.AddCommand(
 		newInspectCommand(service, options),
+		newTreeCommand(service, options),
 		newCheckCommand(service, options),
 		newPresetsCommand(service, options),
 	)

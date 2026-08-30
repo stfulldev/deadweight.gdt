@@ -1,0 +1,9 @@
+deadweight.gdt 0.2.0-test
+
+Scene:     res://scenes/root.tscn
+Project:   res://
+Analysis:  COMPLETE
+Accuracy:  exact
+
+Dependencies
+res://scenes/root.tscn

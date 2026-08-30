@@ -22,6 +22,11 @@ type InspectRequest struct {
 	SceneRequest
 }
 
+// TreeRequest requests recursive analysis for dependency-tree presentation.
+type TreeRequest struct {
+	SceneRequest
+}
+
 // CheckRequest requests recursive analysis and effective budget evaluation.
 type CheckRequest struct {
 	SceneRequest
@@ -37,6 +42,12 @@ type InspectResult struct {
 	ConfigSource  config.Source
 	ConfigPresent bool
 	Analysis      analysis.RecursiveResult
+}
+
+// TreeResult is the report-ready evidence produced by a dependency-tree flow.
+// Inspect holds the shared single-scene analysis result without applying policy.
+type TreeResult struct {
+	Inspect InspectResult
 }
 
 // CheckResult is the report-ready evidence produced by a check flow.

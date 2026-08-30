@@ -178,6 +178,21 @@ func TestInvalidCommandSyntaxDoesNotInvokeApplication(t *testing.T) {
 			fragments: []string{"arg(s)"},
 		},
 		{
+			name:      "tree missing scene",
+			args:      []string{"tree"},
+			fragments: []string{"arg(s)"},
+		},
+		{
+			name:      "tree extra scene",
+			args:      []string{"tree", "one.tscn", "two.tscn"},
+			fragments: []string{"arg(s)"},
+		},
+		{
+			name:      "tree invalid format",
+			args:      []string{"tree", "scene.tscn", "--format", "yaml"},
+			fragments: []string{"invalid format", "text or json"},
+		},
+		{
 			name:      "selector conflict",
 			args:      []string{"check", "scene.tscn", "--preset", "mobile", "--profile", "custom"},
 			fragments: []string{"preset", "profile"},
@@ -349,10 +364,20 @@ func TestColorPolicyUsesTerminalAndBothSuppressionInputs(t *testing.T) {
 
 type fakeApplication struct {
 	inspect     func(application.InspectRequest) (application.InspectResult, error)
+	tree        func(application.TreeRequest) (application.TreeResult, error)
 	check       func(application.CheckRequest) (application.CheckResult, error)
 	listPresets func() (application.PresetListResult, error)
 	showPreset  func(string) (application.PresetShowResult, error)
 	calls       int
+}
+
+func (fake *fakeApplication) Tree(request application.TreeRequest) (application.TreeResult, error) {
+	fake.calls++
+	if fake.tree == nil {
+		return application.TreeResult{}, errors.New("unexpected Tree call")
+	}
+
+	return fake.tree(request)
 }
 
 func (fake *fakeApplication) Inspect(request application.InspectRequest) (application.InspectResult, error) {

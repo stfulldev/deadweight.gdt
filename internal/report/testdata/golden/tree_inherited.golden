@@ -1,0 +1,16 @@
+deadweight.gdt 0.2.0-test
+
+Scene:     res://scenes/root.tscn
+Project:   res://
+Analysis:  PARTIAL
+Accuracy:  approximate
+
+Dependencies
+res://scenes/root.tscn
+└── inheritance ×1 [approximate] res://scenes/base.tscn
+
+Diagnostics
+  WARNING SB1003 res://scenes/root.tscn [res://scenes/base.tscn]: inherited-scene overrides make expanded metrics approximate
+
+WARNING: Expanded metrics are approximate. Values marked with ~ may vary
+because inherited-scene overrides can change values in either direction.
