@@ -6,8 +6,10 @@ import (
 	"github.com/spf13/cobra"
 	application "github.com/stfulldev/deadweight.gdt/internal/app"
 	"github.com/stfulldev/deadweight.gdt/internal/budget"
+	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
 	"github.com/stfulldev/deadweight.gdt/internal/report"
+	"github.com/stfulldev/deadweight.gdt/internal/reportdiff"
 )
 
 func newInspectCommand(service Application, global *globalOptions) *cobra.Command {
@@ -155,4 +157,62 @@ func newCheckCommand(service Application, global *globalOptions) *cobra.Command 
 	command.MarkFlagsMutuallyExclusive("fail-on-partial", "allow-partial")
 
 	return command
+}
+
+func newDiffCommand(service Application, global *globalOptions) *cobra.Command {
+	formatValue := string(presentationText)
+	var metricValues []string
+	var failOnReliability bool
+	command := &cobra.Command{
+		Use:   "diff <before.json> <after.json>",
+		Short: "Compare two portable JSON reports",
+		Args: func(command *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(2)(command, args); err != nil {
+				return err
+			}
+			if _, err := parsePresentationFormat(formatValue); err != nil {
+				return err
+			}
+			_, err := parseDiffPolicy(metricValues, failOnReliability)
+			return err
+		},
+		RunE: func(command *cobra.Command, args []string) error {
+			format, _ := parsePresentationFormat(formatValue)
+			options := global.reportOptions(command.OutOrStdout())
+			policy, _ := parseDiffPolicy(metricValues, failOnReliability)
+			result, err := service.Diff(application.DiffRequest{Before: args[0], After: args[1], Policy: policy})
+			if err != nil {
+				return wrapPresentationError(err, format, options)
+			}
+			var rendered string
+			if format == presentationJSON {
+				rendered, err = report.DiffJSON(result, options)
+			} else {
+				rendered, err = report.Diff(result, options)
+			}
+			if err != nil {
+				return wrapPresentationError(fmt.Errorf("render diff report: %w", err), format, options)
+			}
+			if _, err := fmt.Fprint(command.OutOrStdout(), rendered); err != nil {
+				return wrapPresentationError(err, format, options)
+			}
+			return exitForEvaluation(result.Comparison.Enforcement.Status)
+		},
+	}
+	command.Flags().StringVar(&formatValue, "format", string(presentationText), "output format: text or json")
+	command.Flags().StringArrayVar(&metricValues, "fail-on-increase", nil, "return a non-zero exit when METRIC increases (repeatable)")
+	command.Flags().BoolVar(&failOnReliability, "fail-on-reliability", false, "return exit 3 when report reliability degrades")
+	return command
+}
+
+func parseDiffPolicy(metricValues []string, failOnReliability bool) (reportdiff.Policy, error) {
+	policy := reportdiff.Policy{FailOnReliability: failOnReliability}
+	for _, value := range metricValues {
+		policy.MetricIncreases = append(policy.MetricIncreases, metrics.Name(value))
+	}
+	normalized, err := reportdiff.NormalizePolicy(policy)
+	if err != nil {
+		return reportdiff.Policy{}, fmt.Errorf("invalid --fail-on-increase: %w", err)
+	}
+	return normalized, nil
 }

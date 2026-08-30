@@ -17,6 +17,7 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
+	"github.com/stfulldev/deadweight.gdt/internal/reportdiff"
 )
 
 const reportSchemaVersion = 1
@@ -32,6 +33,7 @@ type documentV1 struct {
 	Evaluation     *evaluationV1     `json:"evaluation,omitempty"`
 	DependencyTree *dependencyTreeV1 `json:"dependency_tree,omitempty"`
 	Error          *fatalErrorV1     `json:"error,omitempty"`
+	Diff           *diffV1           `json:"diff,omitempty"`
 }
 
 type toolV1 struct {
@@ -152,6 +154,91 @@ type dependencyTreeEntryV1 struct {
 	ResolutionReason project.ResolutionReason      `json:"resolution_reason,omitempty"`
 }
 
+type diffV1 struct {
+	ReportKind        reportdiff.Kind         `json:"report_kind"`
+	Scene             string                  `json:"scene"`
+	BeforeReliability analysis.Reliability    `json:"before_reliability"`
+	AfterReliability  analysis.Reliability    `json:"after_reliability"`
+	Changed           bool                    `json:"changed"`
+	Metrics           []diffMetricV1          `json:"metrics"`
+	Reliability       *diffReliabilityV1      `json:"reliability,omitempty"`
+	Coverage          []diffCoverageV1        `json:"coverage"`
+	Diagnostics       []diffDiagnosticV1      `json:"diagnostics"`
+	Dependencies      []diffDependencyV1      `json:"dependencies"`
+	Evaluation        *diffEvaluationChangeV1 `json:"evaluation,omitempty"`
+	Enforcement       diffEnforcementV1       `json:"enforcement"`
+}
+
+type diffMetricV1 struct {
+	Metric           metrics.Name          `json:"metric"`
+	Before           int64                 `json:"before"`
+	After            int64                 `json:"after"`
+	Delta            int64                 `json:"delta"`
+	BeforeConfidence diffConfidenceV1      `json:"before_confidence"`
+	AfterConfidence  diffConfidenceV1      `json:"after_confidence"`
+	Assessment       reportdiff.Assessment `json:"assessment"`
+}
+
+type diffConfidenceV1 struct {
+	Reliability analysis.Reliability        `json:"reliability"`
+	Reasons     []analysis.ConfidenceReason `json:"reasons"`
+	Source      reportdiff.ConfidenceSource `json:"source"`
+}
+
+type diffReliabilityV1 struct {
+	Before analysis.Reliability `json:"before"`
+	After  analysis.Reliability `json:"after"`
+}
+
+type diffCoverageV1 struct {
+	Field  string `json:"field"`
+	Before int64  `json:"before"`
+	After  int64  `json:"after"`
+	Delta  int64  `json:"delta"`
+}
+
+type diffDiagnosticV1 struct {
+	Change            reportdiff.EvidenceChange `json:"change"`
+	Code              diagnostic.Code           `json:"code"`
+	Severity          diagnostic.Severity       `json:"severity"`
+	Message           string                    `json:"message"`
+	Source            *sourceV1                 `json:"source,omitempty"`
+	Resource          string                    `json:"resource,omitempty"`
+	BeforeOccurrences int64                     `json:"before_occurrences"`
+	AfterOccurrences  int64                     `json:"after_occurrences"`
+	Delta             int64                     `json:"delta"`
+}
+
+type diffDependencyV1 struct {
+	Change   reportdiff.EvidenceChange `json:"change"`
+	Identity string                    `json:"identity"`
+}
+
+type diffEvaluationChangeV1 struct {
+	Before diffEvaluationV1 `json:"before"`
+	After  diffEvaluationV1 `json:"after"`
+}
+
+type diffEvaluationV1 struct {
+	Verdict     budget.Status  `json:"verdict"`
+	Exceeded    int64          `json:"exceeded"`
+	Comparisons []comparisonV1 `json:"comparisons"`
+}
+
+type diffEnforcementV1 struct {
+	Enabled  bool            `json:"enabled"`
+	Status   budget.Status   `json:"status"`
+	Triggers []diffTriggerV1 `json:"triggers"`
+}
+
+type diffTriggerV1 struct {
+	Kind              reportdiff.TriggerKind `json:"kind"`
+	Metric            metrics.Name           `json:"metric,omitempty"`
+	Assessment        reportdiff.Assessment  `json:"assessment,omitempty"`
+	BeforeReliability analysis.Reliability   `json:"before_reliability"`
+	AfterReliability  analysis.Reliability   `json:"after_reliability"`
+}
+
 // InspectJSON renders one portable schema-version-one inspect document.
 func InspectJSON(result application.InspectResult, options Options) (string, error) {
 	document, err := inspectDocumentV1(result, options)
@@ -243,6 +330,92 @@ func CheckJSON(result application.CheckResult, options Options) (string, error) 
 	}
 
 	return encodeDocumentV1(inspect)
+}
+
+// DiffJSON renders one portable schema-version-one semantic diff document.
+func DiffJSON(result application.DiffResult, options Options) (string, error) {
+	comparison := result.Comparison
+	if !comparison.Kind.Valid() || comparison.Scene == "" || !comparison.Enforcement.Status.Valid() {
+		return "", fmt.Errorf("invalid diff result")
+	}
+	metricDocuments := make([]diffMetricV1, 0, len(comparison.MetricChanges))
+	for _, change := range comparison.MetricChanges {
+		metricDocuments = append(metricDocuments, diffMetricV1{
+			Metric: change.Metric, Before: change.Before, After: change.After, Delta: change.Delta,
+			BeforeConfidence: diffConfidenceDocumentV1(change.BeforeConfidence),
+			AfterConfidence:  diffConfidenceDocumentV1(change.AfterConfidence), Assessment: change.Assessment,
+		})
+	}
+	var reliability *diffReliabilityV1
+	if comparison.ReliabilityChange != nil {
+		reliability = &diffReliabilityV1{Before: comparison.ReliabilityChange.Before, After: comparison.ReliabilityChange.After}
+	}
+	options = normalizedOptions(options)
+	coverageDocuments := make([]diffCoverageV1, 0, len(comparison.CoverageChanges))
+	for _, change := range comparison.CoverageChanges {
+		coverageDocuments = append(coverageDocuments, diffCoverageV1{Field: change.Field, Before: change.Before, After: change.After, Delta: change.Delta})
+	}
+	diagnosticDocuments := make([]diffDiagnosticV1, 0, len(comparison.DiagnosticChanges))
+	for _, change := range comparison.DiagnosticChanges {
+		document := diffDiagnosticV1{
+			Change: change.Change, Code: change.Diagnostic.Code, Severity: change.Diagnostic.Severity,
+			Message: change.Diagnostic.Message, Resource: change.Diagnostic.Resource,
+			BeforeOccurrences: change.BeforeOccurrences, AfterOccurrences: change.AfterOccurrences, Delta: change.Delta,
+		}
+		if change.Diagnostic.SourcePath != "" {
+			document.Source = &sourceV1{Path: change.Diagnostic.SourcePath, Line: int(change.Diagnostic.Line), Column: int(change.Diagnostic.Column)}
+		}
+		diagnosticDocuments = append(diagnosticDocuments, document)
+	}
+	dependencyDocuments := make([]diffDependencyV1, 0, len(comparison.DependencyChanges))
+	for _, change := range comparison.DependencyChanges {
+		dependencyDocuments = append(dependencyDocuments, diffDependencyV1{Change: change.Change, Identity: change.Identity})
+	}
+	triggerDocuments := make([]diffTriggerV1, 0, len(comparison.Enforcement.Triggers))
+	for _, trigger := range comparison.Enforcement.Triggers {
+		triggerDocuments = append(triggerDocuments, diffTriggerV1{
+			Kind: trigger.Kind, Metric: trigger.Metric, Assessment: trigger.Assessment,
+			BeforeReliability: trigger.BeforeReliability, AfterReliability: trigger.AfterReliability,
+		})
+	}
+	var evaluationDocument *diffEvaluationChangeV1
+	if comparison.EvaluationChange != nil {
+		evaluationDocument = &diffEvaluationChangeV1{
+			Before: diffEvaluationDocumentV1(comparison.EvaluationChange.Before),
+			After:  diffEvaluationDocumentV1(comparison.EvaluationChange.After),
+		}
+	}
+	return encodeDocumentV1(documentV1{
+		SchemaVersion: reportSchemaVersion, Kind: "diff", Tool: toolDocumentV1(options),
+		Diff: &diffV1{
+			ReportKind: comparison.Kind, Scene: comparison.Scene,
+			BeforeReliability: comparison.BeforeReliability, AfterReliability: comparison.AfterReliability,
+			Changed: comparison.Changed, Metrics: metricDocuments, Reliability: reliability,
+			Coverage: coverageDocuments, Diagnostics: diagnosticDocuments, Dependencies: dependencyDocuments,
+			Evaluation: evaluationDocument,
+			Enforcement: diffEnforcementV1{
+				Enabled: comparison.Enforcement.Enabled, Status: comparison.Enforcement.Status, Triggers: triggerDocuments,
+			},
+		},
+	})
+}
+
+func diffEvaluationDocumentV1(value reportdiff.Evaluation) diffEvaluationV1 {
+	comparisons := make([]comparisonV1, 0, len(value.Comparisons))
+	for _, item := range value.Comparisons {
+		comparisons = append(comparisons, comparisonV1{
+			Metric: item.Metric, Observed: item.Actual, Limit: item.Limit, Delta: item.Delta, Passed: item.Passed,
+		})
+	}
+	return diffEvaluationV1{Verdict: value.Verdict, Exceeded: value.Exceeded, Comparisons: comparisons}
+}
+
+func diffConfidenceDocumentV1(value reportdiff.Confidence) diffConfidenceV1 {
+	return diffConfidenceV1{
+		Reliability: value.Reliability,
+		Reasons:     append([]analysis.ConfidenceReason{}, value.Reasons...),
+		Source:      value.Source,
+	}
 }
 
 // ErrorJSON renders one schema-version-one fatal diagnostic document.

@@ -22,6 +22,7 @@ type Application interface {
 	Inspect(application.InspectRequest) (application.InspectResult, error)
 	Tree(application.TreeRequest) (application.TreeResult, error)
 	Check(application.CheckRequest) (application.CheckResult, error)
+	Diff(application.DiffRequest) (application.DiffResult, error)
 	ListPresets() (application.PresetListResult, error)
 	ShowPreset(string) (application.PresetShowResult, error)
 }
@@ -147,6 +148,7 @@ func NewRootWithApplicationAndRuntime(
 		newInspectCommand(service, options),
 		newTreeCommand(service, options),
 		newCheckCommand(service, options),
+		newDiffCommand(service, options),
 		newPresetsCommand(service, options),
 	)
 

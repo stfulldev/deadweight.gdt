@@ -8,6 +8,7 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
 	"github.com/stfulldev/deadweight.gdt/internal/preset"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
+	"github.com/stfulldev/deadweight.gdt/internal/reportdiff"
 )
 
 // SceneRequest contains the common inputs for one scene application flow.
@@ -35,6 +36,13 @@ type CheckRequest struct {
 	PartialOverride budget.PartialOverride
 }
 
+// DiffRequest requests an offline comparison of two portable JSON reports.
+type DiffRequest struct {
+	Before string
+	After  string
+	Policy reportdiff.Policy
+}
+
 // InspectResult is the report-ready evidence produced by an inspect flow.
 type InspectResult struct {
 	Project       project.Root
@@ -55,6 +63,11 @@ type CheckResult struct {
 	Inspect    InspectResult
 	Policy     policy.Effective
 	Evaluation budget.Evaluation
+}
+
+// DiffResult is the report-ready result of one offline comparison.
+type DiffResult struct {
+	Comparison reportdiff.Result
 }
 
 // PresetListResult contains built-in presets in product order.
