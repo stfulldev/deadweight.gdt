@@ -99,6 +99,8 @@ func Decode(reader io.Reader, source string) (Config, error) {
 		FailOnPartial: failOnPartial,
 		Budgets:       limits,
 		Profiles:      profiles,
+
+		failOnPartialDeclared: len(wire.FailOnPartial) > 0,
 	}
 	if err := Validate(configuration, source); err != nil {
 		return Config{}, err

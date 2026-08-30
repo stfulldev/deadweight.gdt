@@ -13,6 +13,7 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/analysis"
 	application "github.com/stfulldev/deadweight.gdt/internal/app"
 	"github.com/stfulldev/deadweight.gdt/internal/budget"
+	"github.com/stfulldev/deadweight.gdt/internal/config"
 	"github.com/stfulldev/deadweight.gdt/internal/diagnostic"
 	"github.com/stfulldev/deadweight.gdt/internal/metrics"
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
@@ -34,6 +35,8 @@ type documentV1 struct {
 	DependencyTree *dependencyTreeV1 `json:"dependency_tree,omitempty"`
 	Error          *fatalErrorV1     `json:"error,omitempty"`
 	Diff           *diffV1           `json:"diff,omitempty"`
+	Profiles       *profileListV1    `json:"profiles,omitempty"`
+	Profile        *profileDetailV1  `json:"profile,omitempty"`
 }
 
 type toolV1 struct {
@@ -237,6 +240,164 @@ type diffTriggerV1 struct {
 	Assessment        reportdiff.Assessment  `json:"assessment,omitempty"`
 	BeforeReliability analysis.Reliability   `json:"before_reliability"`
 	AfterReliability  analysis.Reliability   `json:"after_reliability"`
+}
+
+type profileListV1 struct {
+	Entries []profileSummaryV1 `json:"entries"`
+}
+
+type profileSummaryV1 struct {
+	ID          string `json:"id"`
+	Extends     string `json:"extends,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type profileDetailV1 struct {
+	ID            string                  `json:"id"`
+	Chain         []profileLayerV1        `json:"chain"`
+	Metadata      profileMetadataDetailV1 `json:"metadata"`
+	Budgets       []profileBudgetV1       `json:"budgets"`
+	FailOnPartial profileBoolValueV1      `json:"fail_on_partial"`
+}
+
+type profileLayerV1 struct {
+	Kind policy.LayerKind `json:"kind"`
+	ID   string           `json:"id,omitempty"`
+}
+
+type profileStringValueV1 struct {
+	Value  string         `json:"value"`
+	Source profileLayerV1 `json:"source"`
+}
+
+type profileIntValueV1 struct {
+	Value  int64          `json:"value"`
+	Source profileLayerV1 `json:"source"`
+}
+
+type profileBoolValueV1 struct {
+	Value  bool           `json:"value"`
+	Source profileLayerV1 `json:"source"`
+}
+
+type profileMetadataDetailV1 struct {
+	Name        profileStringValueV1 `json:"name"`
+	Description profileStringValueV1 `json:"description"`
+	Platform    profileStringValueV1 `json:"platform"`
+	Renderer    profileStringValueV1 `json:"renderer"`
+	TargetFPS   profileIntValueV1    `json:"target_fps"`
+	Quality     profileStringValueV1 `json:"quality"`
+	Status      profileStringValueV1 `json:"status"`
+	Stability   profileStringValueV1 `json:"stability"`
+}
+
+type profileBudgetV1 struct {
+	Metric metrics.Name   `json:"metric"`
+	Limit  int64          `json:"limit"`
+	Source profileLayerV1 `json:"source"`
+}
+
+// ProfileListJSON renders one portable schema-version-one custom-profile list.
+func ProfileListJSON(result application.ProfileListResult, options Options) (string, error) {
+	if err := validateProfileContext(result.Project.Directory, result.ConfigSource.Path); err != nil {
+		return "", err
+	}
+	if err := validateProfileSummaries(result.Profiles); err != nil {
+		return "", err
+	}
+	entries := make([]profileSummaryV1, 0, len(result.Profiles))
+	for _, item := range result.Profiles {
+		entries = append(entries, profileSummaryV1{
+			ID:          item.ID,
+			Extends:     item.Extends,
+			Name:        item.Name,
+			Description: item.Description,
+		})
+	}
+	options = normalizedOptions(options)
+	return encodeDocumentV1(documentV1{
+		SchemaVersion: reportSchemaVersion,
+		Kind:          "profiles",
+		Tool:          toolDocumentV1(options),
+		Configuration: profileConfigurationDocumentV1(result.Project.Directory, result.ConfigSource),
+		Profiles:      &profileListV1{Entries: entries},
+	})
+}
+
+// ProfileShowJSON renders one portable schema-version-one profile explanation.
+func ProfileShowJSON(result application.ProfileShowResult, options Options) (string, error) {
+	if err := validateProfileContext(result.Project.Directory, result.ConfigSource.Path); err != nil {
+		return "", err
+	}
+	if err := validateExplanation(result.Explanation); err != nil {
+		return "", err
+	}
+	explanation := result.Explanation
+	metadata := explanation.Effective.Metadata
+	sources := explanation.MetadataSources
+	chain := make([]profileLayerV1, 0, len(explanation.Chain))
+	for _, layer := range explanation.Chain {
+		chain = append(chain, profileLayerDocumentV1(layer))
+	}
+	budgets := make([]profileBudgetV1, 0, explanation.Effective.Budgets.Count())
+	for _, name := range metrics.OrderedNames() {
+		limit, present := explanation.Effective.Budgets.Get(name)
+		if !present {
+			continue
+		}
+		source, _ := explanation.BudgetSources.Get(name)
+		budgets = append(budgets, profileBudgetV1{
+			Metric: name,
+			Limit:  limit,
+			Source: profileLayerDocumentV1(source),
+		})
+	}
+	stringValue := func(value string, source policy.Layer) profileStringValueV1 {
+		return profileStringValueV1{Value: value, Source: profileLayerDocumentV1(source)}
+	}
+	options = normalizedOptions(options)
+	return encodeDocumentV1(documentV1{
+		SchemaVersion: reportSchemaVersion,
+		Kind:          "profile",
+		Tool:          toolDocumentV1(options),
+		Configuration: profileConfigurationDocumentV1(result.Project.Directory, result.ConfigSource),
+		Profile: &profileDetailV1{
+			ID:    explanation.Effective.ID,
+			Chain: chain,
+			Metadata: profileMetadataDetailV1{
+				Name:        stringValue(metadata.Name, sources.Name),
+				Description: stringValue(metadata.Description, sources.Description),
+				Platform:    stringValue(metadata.Platform, sources.Platform),
+				Renderer:    stringValue(metadata.Renderer, sources.Renderer),
+				TargetFPS: profileIntValueV1{
+					Value:  metadata.TargetFPS,
+					Source: profileLayerDocumentV1(sources.TargetFPS),
+				},
+				Quality:   stringValue(metadata.Quality, sources.Quality),
+				Status:    stringValue(metadata.Status, sources.Status),
+				Stability: stringValue(metadata.Stability, sources.Stability),
+			},
+			Budgets: budgets,
+			FailOnPartial: profileBoolValueV1{
+				Value:  explanation.FailOnPartial,
+				Source: profileLayerDocumentV1(explanation.FailOnPartialSource),
+			},
+		},
+	})
+}
+
+func profileLayerDocumentV1(layer policy.Layer) profileLayerV1 {
+	return profileLayerV1{Kind: layer.Kind, ID: layer.ID}
+}
+
+func profileConfigurationDocumentV1(projectRoot string, source config.Source) *configurationV1 {
+	configuration := &configurationV1{Present: true, Selection: "implicit"}
+	if source.Explicit {
+		configuration.Selection = "explicit"
+	}
+	configuration.Path, _ = portableProjectPath(projectRoot, source.Path)
+	return configuration
 }
 
 // InspectJSON renders one portable schema-version-one inspect document.

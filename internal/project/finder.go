@@ -72,6 +72,23 @@ func (finder Finder) Find(request Request) (Root, error) {
 	return finder.discoverFrom(start)
 }
 
+// FindContext discovers a project for a command that does not consume a scene.
+func (finder Finder) FindContext(request ContextRequest) (Root, error) {
+	cwd, err := normalizeWorkingDirectory(request.WorkingDirectory)
+	if err != nil {
+		return Root{}, err
+	}
+
+	if request.ExplicitProject != "" {
+		return finder.validateExplicitProject(request.ExplicitProject, cwd)
+	}
+	if err := finder.validateWorkingDirectory(cwd); err != nil {
+		return Root{}, err
+	}
+
+	return finder.discoverFrom(cwd)
+}
+
 func normalizeWorkingDirectory(raw string) (string, error) {
 	if raw == "" || !filepath.IsAbs(raw) {
 		return "", &Error{

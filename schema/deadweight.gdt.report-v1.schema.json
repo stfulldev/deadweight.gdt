@@ -6,7 +6,7 @@
   "required": ["schema_version", "kind", "tool"],
   "properties": {
     "schema_version": { "const": 1 },
-    "kind": { "enum": ["inspect", "tree", "check", "diff", "error"] },
+    "kind": { "enum": ["inspect", "tree", "check", "diff", "profiles", "profile", "error"] },
     "tool": { "$ref": "#/$defs/tool" },
     "scene": { "$ref": "#/$defs/scene" },
     "configuration": { "$ref": "#/$defs/configuration" },
@@ -15,7 +15,9 @@
     "evaluation": { "$ref": "#/$defs/evaluation" },
     "dependency_tree": { "$ref": "#/$defs/dependencyTree" },
     "error": { "$ref": "#/$defs/error" },
-    "diff": { "$ref": "#/$defs/diff" }
+    "diff": { "$ref": "#/$defs/diff" },
+    "profiles": { "$ref": "#/$defs/profileList" },
+    "profile": { "$ref": "#/$defs/profileDetail" }
   },
   "oneOf": [
     {
@@ -27,7 +29,9 @@
           { "required": ["evaluation"] },
           { "required": ["dependency_tree"] },
           { "required": ["error"] },
-          { "required": ["diff"] }
+          { "required": ["diff"] },
+          { "required": ["profiles"] },
+          { "required": ["profile"] }
         ]
       }
     },
@@ -39,7 +43,9 @@
           { "required": ["policy"] },
           { "required": ["evaluation"] },
           { "required": ["error"] },
-          { "required": ["diff"] }
+          { "required": ["diff"] },
+          { "required": ["profiles"] },
+          { "required": ["profile"] }
         ]
       }
     },
@@ -50,7 +56,9 @@
         "anyOf": [
           { "required": ["dependency_tree"] },
           { "required": ["error"] },
-          { "required": ["diff"] }
+          { "required": ["diff"] },
+          { "required": ["profiles"] },
+          { "required": ["profile"] }
         ]
       }
     },
@@ -65,7 +73,41 @@
           { "required": ["policy"] },
           { "required": ["evaluation"] },
           { "required": ["dependency_tree"] },
-          { "required": ["error"] }
+          { "required": ["error"] },
+          { "required": ["profiles"] },
+          { "required": ["profile"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "profiles" } },
+      "required": ["configuration", "profiles"],
+      "not": {
+        "anyOf": [
+          { "required": ["scene"] },
+          { "required": ["analysis"] },
+          { "required": ["policy"] },
+          { "required": ["evaluation"] },
+          { "required": ["dependency_tree"] },
+          { "required": ["error"] },
+          { "required": ["diff"] },
+          { "required": ["profile"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "profile" } },
+      "required": ["configuration", "profile"],
+      "not": {
+        "anyOf": [
+          { "required": ["scene"] },
+          { "required": ["analysis"] },
+          { "required": ["policy"] },
+          { "required": ["evaluation"] },
+          { "required": ["dependency_tree"] },
+          { "required": ["error"] },
+          { "required": ["diff"] },
+          { "required": ["profiles"] }
         ]
       }
     },
@@ -80,7 +122,9 @@
           { "required": ["policy"] },
           { "required": ["evaluation"] },
           { "required": ["dependency_tree"] },
-          { "required": ["diff"] }
+          { "required": ["diff"] },
+          { "required": ["profiles"] },
+          { "required": ["profile"] }
         ]
       }
     }
@@ -678,6 +722,115 @@
         "evaluation": { "$ref": "#/$defs/diffEvaluation" },
         "enforcement": { "$ref": "#/$defs/diffEnforcement" }
       }
+    },
+    "profileID": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "profileLayer": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["default", "preset", "profile", "project"] },
+        "id": { "$ref": "#/$defs/profileID" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["preset", "profile"] } }, "required": ["kind"] },
+          "then": { "required": ["id"] }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["default", "project"] } }, "required": ["kind"] },
+          "then": { "not": { "required": ["id"] } }
+        }
+      ]
+    },
+    "profileStringValue": {
+      "type": "object",
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "string" },
+        "source": { "$ref": "#/$defs/profileLayer" }
+      },
+      "additionalProperties": false
+    },
+    "profileIntValue": {
+      "type": "object",
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "$ref": "#/$defs/nonNegativeInt64" },
+        "source": { "$ref": "#/$defs/profileLayer" }
+      },
+      "additionalProperties": false
+    },
+    "profileBoolValue": {
+      "type": "object",
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "boolean" },
+        "source": { "$ref": "#/$defs/profileLayer" }
+      },
+      "additionalProperties": false
+    },
+    "profileMetadataDetail": {
+      "type": "object",
+      "required": [
+        "name", "description", "platform", "renderer", "target_fps",
+        "quality", "status", "stability"
+      ],
+      "properties": {
+        "name": { "$ref": "#/$defs/profileStringValue" },
+        "description": { "$ref": "#/$defs/profileStringValue" },
+        "platform": { "$ref": "#/$defs/profileStringValue" },
+        "renderer": { "$ref": "#/$defs/profileStringValue" },
+        "target_fps": { "$ref": "#/$defs/profileIntValue" },
+        "quality": { "$ref": "#/$defs/profileStringValue" },
+        "status": { "$ref": "#/$defs/profileStringValue" },
+        "stability": { "$ref": "#/$defs/profileStringValue" }
+      },
+      "additionalProperties": false
+    },
+    "profileBudget": {
+      "type": "object",
+      "required": ["metric", "limit", "source"],
+      "properties": {
+        "metric": { "$ref": "#/$defs/metricName" },
+        "limit": { "$ref": "#/$defs/nonNegativeInt64" },
+        "source": { "$ref": "#/$defs/profileLayer" }
+      },
+      "additionalProperties": false
+    },
+    "profileSummary": {
+      "type": "object",
+      "required": ["id", "name", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/profileID" },
+        "extends": { "$ref": "#/$defs/profileID" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "profileList": {
+      "type": "object",
+      "required": ["entries"],
+      "properties": {
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/profileSummary" } }
+      },
+      "additionalProperties": false
+    },
+    "profileDetail": {
+      "type": "object",
+      "required": ["id", "chain", "metadata", "budgets", "fail_on_partial"],
+      "properties": {
+        "id": { "$ref": "#/$defs/profileID" },
+        "chain": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/profileLayer" } },
+        "metadata": { "$ref": "#/$defs/profileMetadataDetail" },
+        "budgets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/profileBudget" } },
+        "fail_on_partial": { "$ref": "#/$defs/profileBoolValue" }
+      },
+      "additionalProperties": false
     },
     "error": {
       "type": "object",
