@@ -490,8 +490,10 @@ func partialTreeFixture(projectRoot string) application.TreeResult {
 	root := result.Inspect.Analysis.Graph.RootCanonical
 	result.Inspect.Analysis.Status = analysis.AnalysisPartial
 	result.Inspect.Analysis.Reliability = analysis.ReliabilityLowerBound
+	result.Inspect.Analysis.MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityLowerBound)
 	result.Inspect.Analysis.Coverage.UnresolvedSceneInstances = 3
 	result.Inspect.Analysis.Summary.Contributions[0].Reliability = analysis.ReliabilityLowerBound
+	result.Inspect.Analysis.Summary.Contributions[0].MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityLowerBound)
 	result.Inspect.Analysis.Diagnostics = []diagnostic.Diagnostic{{
 		Code: diagnostic.CodeImportedScene, Severity: diagnostic.SeverityWarning,
 		Message: "imported PackedScene cannot be expanded statically",
@@ -519,8 +521,10 @@ func inheritedTreeFixture(projectRoot string) application.TreeResult {
 	})
 	result.Inspect.Analysis.Status = analysis.AnalysisPartial
 	result.Inspect.Analysis.Reliability = analysis.ReliabilityApproximate
+	result.Inspect.Analysis.MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityApproximate)
 	result.Inspect.Analysis.Coverage.InheritedScenes = 1
 	result.Inspect.Analysis.Summary.Contributions[0].Reliability = analysis.ReliabilityApproximate
+	result.Inspect.Analysis.Summary.Contributions[0].MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityApproximate)
 	result.Inspect.Analysis.Diagnostics = []diagnostic.Diagnostic{{
 		Code: diagnostic.CodeInheritedScene, Severity: diagnostic.SeverityWarning,
 		Message: "inherited-scene overrides make expanded metrics approximate",

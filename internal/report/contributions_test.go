@@ -133,5 +133,6 @@ func contributionFixture(
 		Values:           analysis.ContributionValues{Nodes: nodes},
 		DepthCandidate:   analysis.OptionalDepth{Value: 2, Known: true},
 		Reliability:      reliability,
+		MetricConfidence: fixtureMetricConfidence(reliability),
 	}
 }

@@ -305,6 +305,55 @@ func TestJSONFatalDocumentIsMachineOnly(t *testing.T) {
 	}
 }
 
+func TestJSONMetricConfidenceIsCompleteAndSchemaRemainsV1Compatible(t *testing.T) {
+	t.Parallel()
+
+	rendered, err := InspectJSON(ordinaryResourceInspect(), Options{Version: "test"})
+	if err != nil {
+		t.Fatalf("InspectJSON() error = %v", err)
+	}
+	var document map[string]any
+	decoder := json.NewDecoder(strings.NewReader(rendered))
+	decoder.UseNumber()
+	if err := decoder.Decode(&document); err != nil {
+		t.Fatalf("decode InspectJSON: %v", err)
+	}
+	analysisDocument := document["analysis"].(map[string]any)
+	rootMetrics := analysisDocument["metrics"].([]any)
+	if len(rootMetrics) != len(metrics.OrderedNames()) {
+		t.Fatalf("root metric count = %d", len(rootMetrics))
+	}
+	for index, raw := range rootMetrics {
+		metric := raw.(map[string]any)
+		confidence, ok := metric["confidence"].(map[string]any)
+		if !ok {
+			t.Fatalf("root metric %d lacks confidence: %#v", index, metric)
+		}
+		want := "exact"
+		if metric["id"] == string(metrics.ExternalResources) {
+			want = "lower_bound"
+		}
+		if confidence["reliability"] != want {
+			t.Errorf("root metric %q confidence = %#v", metric["id"], confidence)
+		}
+		delete(metric, "confidence")
+	}
+	contributions := analysisDocument["contributions"].([]any)
+	for _, rawContribution := range contributions {
+		contribution := rawContribution.(map[string]any)
+		for _, rawMetric := range contribution["metrics"].([]any) {
+			metric := rawMetric.(map[string]any)
+			if _, ok := metric["confidence"].(map[string]any); !ok {
+				t.Fatalf("contribution metric lacks confidence: %#v", metric)
+			}
+			delete(metric, "confidence")
+		}
+	}
+	if err := reportSchema(t).Validate(document); err != nil {
+		t.Fatalf("earlier schema-v1 document without confidence rejected: %v", err)
+	}
+}
+
 func portableInspectFixture(root, scene, configPath, diagnosticPath string) application.InspectResult {
 	result := completeInspect()
 	result.Project = project.Root{Directory: root, ProjectFile: root + `/project.godot`}
@@ -313,6 +362,7 @@ func portableInspectFixture(root, scene, configPath, diagnosticPath string) appl
 	result.ConfigSource = config.Source{Path: configPath, Explicit: true}
 	result.Analysis.Status = analysis.AnalysisPartial
 	result.Analysis.Reliability = analysis.ReliabilityLowerBound
+	result.Analysis.MetricConfidence = fixtureMetricConfidence(analysis.ReliabilityLowerBound)
 	result.Analysis.Diagnostics = []diagnostic.Diagnostic{{
 		Code: diagnostic.CodeImportedScene, Severity: diagnostic.SeverityWarning,
 		Message: "imported PackedScene cannot be expanded statically",

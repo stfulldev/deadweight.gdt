@@ -18,35 +18,83 @@
     "metrics": [
       {
         "id": "nodes",
-        "value": 2841
+        "value": 2841,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "tree_depth",
-        "value": 17
+        "value": 17,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "scene_instances",
-        "value": 184
+        "value": 184,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "mesh_instances",
-        "value": 1024
+        "value": 1024,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "lights",
-        "value": 43
+        "value": 43,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "shadow_lights",
-        "value": 9
+        "value": 9,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "external_resources",
-        "value": 218
+        "value": 218,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       },
       {
         "id": "scene_dependencies",
-        "value": 12
+        "value": 12,
+        "confidence": {
+          "reliability": "lower_bound",
+          "reasons": [
+            "imported_scene"
+          ]
+        }
       }
     ],
     "coverage": {
@@ -85,41 +133,73 @@
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 2836
+            "value": 2836,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
             "value": 17,
-            "available": true
+            "available": true,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 179
+            "value": 179,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "mesh_instances",
             "aggregation": "additive",
-            "value": 1024
+            "value": 1024,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "lights",
             "aggregation": "additive",
-            "value": 43
+            "value": 43,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "shadow_lights",
             "aggregation": "additive",
-            "value": 9
+            "value": 9,
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "external_resources",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           },
           {
             "id": "scene_dependencies",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "exact",
+              "reasons": []
+            }
           }
         ]
       },
@@ -136,41 +216,89 @@
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 3
+            "value": 3,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
             "value": 3,
-            "available": true
+            "available": true,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 3
+            "value": 3,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "mesh_instances",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "lights",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "shadow_lights",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "external_resources",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "scene_dependencies",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           }
         ]
       },
@@ -187,41 +315,89 @@
           {
             "id": "nodes",
             "aggregation": "additive",
-            "value": 2
+            "value": 2,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "tree_depth",
             "aggregation": "maximum",
             "value": 4,
-            "available": true
+            "available": true,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "scene_instances",
             "aggregation": "additive",
-            "value": 2
+            "value": 2,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "mesh_instances",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "lights",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "shadow_lights",
             "aggregation": "additive",
-            "value": 0
+            "value": 0,
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "external_resources",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           },
           {
             "id": "scene_dependencies",
-            "aggregation": "unique_union"
+            "aggregation": "unique_union",
+            "confidence": {
+              "reliability": "lower_bound",
+              "reasons": [
+                "imported_scene"
+              ]
+            }
           }
         ]
       }

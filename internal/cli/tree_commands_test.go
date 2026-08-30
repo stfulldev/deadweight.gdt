@@ -140,8 +140,17 @@ func treeResult(partial bool) application.TreeResult {
 	if partial {
 		inspect.Analysis.Status = analysis.AnalysisPartial
 		inspect.Analysis.Reliability = analysis.ReliabilityLowerBound
+		confidence, err := analysis.UniformMetricConfidence(
+			analysis.ReliabilityLowerBound,
+			analysis.ConfidenceImportedScene,
+		)
+		if err != nil {
+			panic(err)
+		}
+		inspect.Analysis.MetricConfidence = confidence
 		inspect.Analysis.Coverage.UnresolvedSceneInstances = 1
 		inspect.Analysis.Summary.Contributions[0].Reliability = analysis.ReliabilityLowerBound
+		inspect.Analysis.Summary.Contributions[0].MetricConfidence = confidence
 		inspect.Analysis.Graph.Edges = []analysis.GraphEdge{{
 			FromCanonical:    "/game/root.tscn",
 			FromDisplay:      "res://root.tscn",
