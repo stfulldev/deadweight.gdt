@@ -29,4 +29,4 @@
 - [x] 5.1 Document `tree`, its local declaring-edge multiplicity, back-reference, partial-evidence, and JSON contracts in command help, README, and CHANGELOG without implying transitive totals, full inheritance merging, UID/import expansion, or project-wide visualization.
 - [x] 5.2 Run formatting, build, all tests, race tests, vet, and lint; record zero failures and preserve the repository's offline/static-analysis runtime boundary.
 - [x] 5.3 Run `openspec validate --all --strict`, `openspec status`, and `git diff --check`; reconcile the implemented behavior with every requirement and scenario before archiving the change.
-- [ ] 5.4 Keep production/documentation work and test/fixture work in separate commits, push each reviewed stage to linked Draft PR #61, complete the PR checklist, then archive the OpenSpec change only after all local and hosted gates pass.
+- [x] 5.4 Keep production/documentation work and test/fixture work in separate commits, push each reviewed stage to linked Draft PR #61, complete the PR checklist, then archive the OpenSpec change only after all local and hosted gates pass.
