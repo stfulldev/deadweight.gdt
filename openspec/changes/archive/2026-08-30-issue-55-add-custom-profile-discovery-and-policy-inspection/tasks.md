@@ -23,4 +23,4 @@
 - [x] 5.1 Add end-to-end CLI fixtures for absent/invalid configuration, cycles, custom parents, built-in parents, top-level overrides, and text/JSON output, and verify effective values match an equivalent `check --profile` invocation
 - [x] 5.2 Update user-facing CLI documentation for the additive commands and verify examples and compatibility statements match the implemented syntax
 - [x] 5.3 Run `gofmt`, `go test ./...`, `go test -race ./...`, `go vet ./...`, `golangci-lint run`, and strict OpenSpec validation, fixing every failure before delivery
-- [ ] 5.4 Archive the completed OpenSpec change, verify main specs and archive validation, update linked Draft PR #64, and merge it only after hosted CI passes
+- [x] 5.4 Archive the completed OpenSpec change, verify main specs and archive validation, update linked Draft PR #64, and merge it only after hosted CI passes
