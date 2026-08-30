@@ -6,7 +6,7 @@
   "required": ["schema_version", "kind", "tool"],
   "properties": {
     "schema_version": { "const": 1 },
-    "kind": { "enum": ["inspect", "tree", "check", "error"] },
+    "kind": { "enum": ["inspect", "tree", "check", "diff", "error"] },
     "tool": { "$ref": "#/$defs/tool" },
     "scene": { "$ref": "#/$defs/scene" },
     "configuration": { "$ref": "#/$defs/configuration" },
@@ -14,7 +14,8 @@
     "policy": { "$ref": "#/$defs/policy" },
     "evaluation": { "$ref": "#/$defs/evaluation" },
     "dependency_tree": { "$ref": "#/$defs/dependencyTree" },
-    "error": { "$ref": "#/$defs/error" }
+    "error": { "$ref": "#/$defs/error" },
+    "diff": { "$ref": "#/$defs/diff" }
   },
   "oneOf": [
     {
@@ -25,7 +26,8 @@
           { "required": ["policy"] },
           { "required": ["evaluation"] },
           { "required": ["dependency_tree"] },
-          { "required": ["error"] }
+          { "required": ["error"] },
+          { "required": ["diff"] }
         ]
       }
     },
@@ -36,7 +38,8 @@
         "anyOf": [
           { "required": ["policy"] },
           { "required": ["evaluation"] },
-          { "required": ["error"] }
+          { "required": ["error"] },
+          { "required": ["diff"] }
         ]
       }
     },
@@ -45,6 +48,22 @@
       "required": ["scene", "configuration", "analysis", "policy", "evaluation"],
       "not": {
         "anyOf": [
+          { "required": ["dependency_tree"] },
+          { "required": ["error"] },
+          { "required": ["diff"] }
+        ]
+      }
+    },
+    {
+      "properties": { "kind": { "const": "diff" } },
+      "required": ["diff"],
+      "not": {
+        "anyOf": [
+          { "required": ["scene"] },
+          { "required": ["configuration"] },
+          { "required": ["analysis"] },
+          { "required": ["policy"] },
+          { "required": ["evaluation"] },
           { "required": ["dependency_tree"] },
           { "required": ["error"] }
         ]
@@ -60,7 +79,8 @@
           { "required": ["analysis"] },
           { "required": ["policy"] },
           { "required": ["evaluation"] },
-          { "required": ["dependency_tree"] }
+          { "required": ["dependency_tree"] },
+          { "required": ["diff"] }
         ]
       }
     }
@@ -512,6 +532,151 @@
         "comparisons": { "type": "array", "items": { "$ref": "#/$defs/comparison" } },
         "exceeded": { "$ref": "#/$defs/nonNegativeInt64" },
         "verdict": { "enum": ["PASSED", "FAILED", "INCOMPLETE"] }
+      }
+    },
+    "diffConfidence": {
+      "allOf": [
+        { "$ref": "#/$defs/confidence" },
+        {
+          "required": ["source"],
+          "properties": { "source": { "enum": ["metric", "report_summary"] } }
+        }
+      ]
+    },
+    "diffMetric": {
+      "type": "object",
+      "required": [
+        "metric", "before", "after", "delta", "before_confidence",
+        "after_confidence", "assessment"
+      ],
+      "properties": {
+        "metric": { "$ref": "#/$defs/metricName" },
+        "before": { "$ref": "#/$defs/nonNegativeInt64" },
+        "after": { "$ref": "#/$defs/nonNegativeInt64" },
+        "delta": { "$ref": "#/$defs/int64" },
+        "before_confidence": { "$ref": "#/$defs/diffConfidence" },
+        "after_confidence": { "$ref": "#/$defs/diffConfidence" },
+        "assessment": { "enum": ["regression", "improvement", "uncertain"] }
+      }
+    },
+    "diffReliability": {
+      "type": "object",
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "enum": ["exact", "lower_bound", "approximate"] },
+        "after": { "enum": ["exact", "lower_bound", "approximate"] }
+      }
+    },
+    "diffCoverage": {
+      "type": "object",
+      "required": ["field", "before", "after", "delta"],
+      "properties": {
+        "field": {
+          "enum": [
+            "parsed_scene_files", "resolved_scene_instances",
+            "unresolved_scene_instances", "inherited_scenes"
+          ]
+        },
+        "before": { "$ref": "#/$defs/nonNegativeInt64" },
+        "after": { "$ref": "#/$defs/nonNegativeInt64" },
+        "delta": { "$ref": "#/$defs/int64" }
+      }
+    },
+    "diffDiagnostic": {
+      "type": "object",
+      "required": [
+        "change", "code", "severity", "message", "before_occurrences",
+        "after_occurrences", "delta"
+      ],
+      "properties": {
+        "change": { "enum": ["added", "removed", "occurrences_changed"] },
+        "code": { "$ref": "#/$defs/diagnosticCode" },
+        "severity": { "enum": ["warning", "error"] },
+        "message": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/source" },
+        "resource": { "type": "string", "minLength": 1, "pattern": "^[^\\\\]*$" },
+        "before_occurrences": { "$ref": "#/$defs/nonNegativeInt64" },
+        "after_occurrences": { "$ref": "#/$defs/nonNegativeInt64" },
+        "delta": { "$ref": "#/$defs/int64" }
+      }
+    },
+    "diffDependency": {
+      "type": "object",
+      "required": ["change", "identity"],
+      "properties": {
+        "change": { "enum": ["added", "removed"] },
+        "identity": { "$ref": "#/$defs/portablePath" }
+      }
+    },
+    "diffEvaluation": {
+      "type": "object",
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "$ref": "#/$defs/evaluation" },
+        "after": { "$ref": "#/$defs/evaluation" }
+      }
+    },
+    "diffTrigger": {
+      "type": "object",
+      "required": ["kind", "before_reliability", "after_reliability"],
+      "properties": {
+        "kind": { "enum": ["metric_increase", "reliability_degradation"] },
+        "metric": { "$ref": "#/$defs/metricName" },
+        "assessment": { "enum": ["regression", "uncertain"] },
+        "before_reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "after_reliability": { "enum": ["exact", "lower_bound", "approximate"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "metric_increase" } }, "required": ["kind"] },
+          "then": { "required": ["metric", "assessment"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "reliability_degradation" } }, "required": ["kind"] },
+          "then": { "not": { "anyOf": [{ "required": ["metric"] }, { "required": ["assessment"] }] } }
+        }
+      ]
+    },
+    "diffEnforcement": {
+      "type": "object",
+      "required": ["enabled", "status", "triggers"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "status": { "enum": ["PASSED", "FAILED", "INCOMPLETE"] },
+        "triggers": { "type": "array", "items": { "$ref": "#/$defs/diffTrigger" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": false } }, "required": ["enabled"] },
+          "then": {
+            "properties": {
+              "status": { "const": "PASSED" },
+              "triggers": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "diff": {
+      "type": "object",
+      "required": [
+        "report_kind", "scene", "before_reliability", "after_reliability",
+        "changed", "metrics", "coverage", "diagnostics", "dependencies",
+        "enforcement"
+      ],
+      "properties": {
+        "report_kind": { "enum": ["inspect", "tree", "check"] },
+        "scene": { "$ref": "#/$defs/portablePath" },
+        "before_reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "after_reliability": { "enum": ["exact", "lower_bound", "approximate"] },
+        "changed": { "type": "boolean" },
+        "metrics": { "type": "array", "items": { "$ref": "#/$defs/diffMetric" } },
+        "reliability": { "$ref": "#/$defs/diffReliability" },
+        "coverage": { "type": "array", "items": { "$ref": "#/$defs/diffCoverage" } },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diffDiagnostic" } },
+        "dependencies": { "type": "array", "items": { "$ref": "#/$defs/diffDependency" } },
+        "evaluation": { "$ref": "#/$defs/diffEvaluation" },
+        "enforcement": { "$ref": "#/$defs/diffEnforcement" }
       }
     },
     "error": {

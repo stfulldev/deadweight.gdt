@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "kind": "diff",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "diff": {
+    "report_kind": "inspect",
+    "scene": "res://levels/city.tscn",
+    "before_reliability": "exact",
+    "after_reliability": "lower_bound",
+    "changed": true,
+    "metrics": [],
+    "reliability": {
+      "before": "exact",
+      "after": "lower_bound"
+    },
+    "coverage": [],
+    "diagnostics": [],
+    "dependencies": [],
+    "enforcement": {
+      "enabled": true,
+      "status": "INCOMPLETE",
+      "triggers": [
+        {
+          "kind": "reliability_degradation",
+          "before_reliability": "exact",
+          "after_reliability": "lower_bound"
+        }
+      ]
+    }
+  }
+}

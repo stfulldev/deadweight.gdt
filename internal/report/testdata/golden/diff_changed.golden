@@ -1,0 +1,30 @@
+deadweight.gdt 0.2.0-test
+
+Report kind:  check
+Scene:        res://levels/city.tscn
+Reliability:  exact -> lower_bound
+
+Metrics
+  Metric                    Before      After      Delta   Assessment
+  nodes                           100        112        +12   REGRESSION (exact -> lower_bound)
+  mesh_instances                   50         48         -2   UNCERTAIN (exact -> lower_bound)
+
+Coverage
+  parsed_scene_files           2 -> 3 (+1)
+
+Diagnostics
+  ADDED               warning SB1004: resource unavailable
+  OCCURRENCES_CHANGED warning SB1001: scene unavailable (1 -> 3, +2)
+
+Scene dependencies
+  REMOVED res://old.tscn
+  ADDED   res://new.tscn
+
+Budget evaluation
+  Verdict:  PASSED -> FAILED
+  Exceeded: 0 -> 1
+  Candidate comparisons:
+    nodes                  observed 112, limit 100, passed false
+
+Enforcement
+  DISABLED — comparison only

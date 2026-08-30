@@ -366,6 +366,7 @@ type fakeApplication struct {
 	inspect     func(application.InspectRequest) (application.InspectResult, error)
 	tree        func(application.TreeRequest) (application.TreeResult, error)
 	check       func(application.CheckRequest) (application.CheckResult, error)
+	diff        func(application.DiffRequest) (application.DiffResult, error)
 	listPresets func() (application.PresetListResult, error)
 	showPreset  func(string) (application.PresetShowResult, error)
 	calls       int
@@ -396,6 +397,15 @@ func (fake *fakeApplication) Check(request application.CheckRequest) (applicatio
 	}
 
 	return fake.check(request)
+}
+
+func (fake *fakeApplication) Diff(request application.DiffRequest) (application.DiffResult, error) {
+	fake.calls++
+	if fake.diff == nil {
+		return application.DiffResult{}, errors.New("unexpected Diff call")
+	}
+
+	return fake.diff(request)
 }
 
 func (fake *fakeApplication) ListPresets() (application.PresetListResult, error) {

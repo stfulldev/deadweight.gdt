@@ -12,6 +12,7 @@ import (
 	"github.com/stfulldev/deadweight.gdt/internal/policy"
 	"github.com/stfulldev/deadweight.gdt/internal/preset"
 	"github.com/stfulldev/deadweight.gdt/internal/project"
+	"github.com/stfulldev/deadweight.gdt/internal/reportdiff"
 	"github.com/stfulldev/deadweight.gdt/internal/tscn"
 )
 
@@ -33,6 +34,7 @@ type Dependencies struct {
 	ResolvePartial     func(bool, budget.PartialOverride) (bool, error)
 	Evaluate           func(metrics.Values, budget.Limits, analysis.Reliability, bool) (budget.Evaluation, error)
 	LoadBuiltInPresets func() (preset.Catalog, error)
+	ReadFile           func(string) ([]byte, error)
 }
 
 // Application executes the standalone CLI command flows.
@@ -77,6 +79,9 @@ func New(dependencies Dependencies) *Application {
 	}
 	if dependencies.LoadBuiltInPresets == nil {
 		dependencies.LoadBuiltInPresets = preset.Builtins
+	}
+	if dependencies.ReadFile == nil {
+		dependencies.ReadFile = os.ReadFile
 	}
 
 	return &Application{dependencies: dependencies}
@@ -146,6 +151,44 @@ func (application *Application) Check(request CheckRequest) (CheckResult, error)
 		Policy:     effective.Clone(),
 		Evaluation: evaluation.Clone(),
 	}, nil
+}
+
+// Diff reads and compares two portable reports without consulting project state.
+func (application *Application) Diff(request DiffRequest) (DiffResult, error) {
+	if err := application.validate(); err != nil {
+		return DiffResult{}, err
+	}
+	if request.Before == "" || request.After == "" {
+		return DiffResult{}, fmt.Errorf("both baseline report paths are required")
+	}
+	policy, err := reportdiff.NormalizePolicy(request.Policy)
+	if err != nil {
+		return DiffResult{}, fmt.Errorf("validate diff policy: %w", err)
+	}
+	before, err := application.readReport(request.Before)
+	if err != nil {
+		return DiffResult{}, fmt.Errorf("read baseline %q: %w", request.Before, err)
+	}
+	after, err := application.readReport(request.After)
+	if err != nil {
+		return DiffResult{}, fmt.Errorf("read candidate %q: %w", request.After, err)
+	}
+	comparison, err := reportdiff.Compare(before, after, policy)
+	if err != nil {
+		return DiffResult{}, fmt.Errorf("compare reports: %w", err)
+	}
+	return DiffResult{Comparison: comparison}, nil
+}
+
+func (application *Application) readReport(filename string) (reportdiff.Snapshot, error) {
+	contents, err := application.dependencies.ReadFile(filename)
+	if err != nil {
+		return reportdiff.Snapshot{}, err
+	}
+	if len(contents) > reportdiff.MaxInputBytes {
+		return reportdiff.Snapshot{}, fmt.Errorf("report exceeds %d-byte input limit", reportdiff.MaxInputBytes)
+	}
+	return reportdiff.Decode(contents)
 }
 
 // ListPresets returns built-in presets without consulting project state.
