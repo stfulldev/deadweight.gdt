@@ -15,6 +15,9 @@ It does not require Godot to be installed. The tool is intended for fast local f
 
 The current release is `v0.2.0`. The frozen MVP 0.1 contract remains in [the MVP specification](docs/MVP_0.1_SPEC.md) and [its acceptance matrix](docs/MVP_0.1_ACCEPTANCE.md); the integrated automation and explainability release is mapped in [the MVP 0.2 acceptance matrix](docs/MVP_0.2_ACCEPTANCE.md).
 
+> [!NOTE]
+> The default branch can contain unreleased MVP 0.3 work. In particular, format-4 text-scene support requires a source build until a later release is tagged; the published `v0.2.0` contract remains format 3 only.
+
 ## Terminal example
 
 ```text
@@ -333,13 +336,14 @@ Partial analysis remains visible in coverage, grouped unresolved evidence, and d
 
 Supported root input:
 
-- one existing Godot 4 text scene with the case-sensitive `.tscn` extension and `[gd_scene ... format=3]`;
+- one existing Godot 4 text scene with the case-sensitive `.tscn` extension and `[gd_scene ... format=3]` or `[gd_scene ... format=4]` in current source;
 - string or numeric external-resource IDs;
 - absolute, relative, and `res://` paths contained by the canonical project root;
-- nested resolved `.tscn` scenes, repeated instances, and safe relative resource paths;
+- nested resolved format-3/format-4 `.tscn` scenes, repeated instances, and safe relative resource paths;
+- format-4 base64 `PackedByteArray`, `PackedVector4Array`, and node `unique_id` syntax as opaque/non-metric data where applicable;
 - unknown sections/properties and balanced Variant values, which are skipped by the streaming parser.
 
-Unsupported root input is fatal: Godot 3 `format=2`, `.scn`, `.escn`, `.tres`, `.glb`, `.gltf`, `.blend`, `uid://`-only paths, `user://`, or malformed supported text scenes.
+Unsupported root input is fatal: Godot 3 `format=2`, unknown future text formats, `.scn`, `.escn`, `.tres`, `.glb`, `.gltf`, `.blend`, `uid://`-only paths, `user://`, or malformed supported text scenes.
 
 Unsupported nested PackedScene targets are reported as `PARTIAL`, not ignored. This includes imported/binary scenes, missing scenes, `SubResource`, placeholders, and UID-only/user paths. Existing non-scene resources such as scripts, textures, materials, audio, and `.tres` contribute to `external_resources`, but their contents are not deeply parsed.
 
@@ -372,6 +376,8 @@ The repository quality gate runs build, tests, race tests, and vet on Linux, mac
 ## Roadmap
 
 MVP 0.2 is shipped and traced in [GitHub issue #57](https://github.com/stfulldev/deadweight.gdt/issues/57). It adds versioned JSON reports, per-scene contribution evidence, dependency-tree rendering, per-metric confidence, offline report baselines/diffs, and custom-profile inspection. It does not add remote baseline storage, SARIF, project-wide scans, or runtime profiling.
+
+MVP 0.3 is tracked in [GitHub issue #66](https://github.com/stfulldev/deadweight.gdt/issues/66). Its first source slice accepts verified format-4 text scenes through the same standalone analysis pipeline; UID resolution, exact inherited overrides, and optional Godot/import evidence remain later focused slices and are not part of `v0.2.0`.
 
 The following are explicitly deferred and are not features shipped or promised by `v0.2.0`:
 

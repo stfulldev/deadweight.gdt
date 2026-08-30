@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://equivalent3"]
+
+[node name="Equivalent" type="Node3D"]
+[node name="Mesh" type="MeshInstance3D" parent="."]
+[node name="Light" type="SpotLight3D" parent="."]
+shadow_enabled = true

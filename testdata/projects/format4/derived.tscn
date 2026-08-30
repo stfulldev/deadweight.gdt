@@ -1,0 +1,7 @@
+[gd_scene format=4 uid="uid://formatderived"]
+
+[ext_resource type="PackedScene" uid="uid://formatbase" path="res://base.tscn" id="1_base"]
+
+[node name="Derived" instance=ExtResource("1_base") unique_id=501]
+[node name="Light" type="DirectionalLight3D" parent="." unique_id=502]
+shadow_enabled = true

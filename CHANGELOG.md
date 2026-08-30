@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Accept Godot format-4 `.tscn` roots, nested dependencies, and inherited bases through the existing standalone parser and analysis pipeline while retaining the declared header version.
+- Consume format-4 base64 `PackedByteArray`, `PackedVector4Array`, and node `unique_id` syntax as opaque non-metric data without decoding packed payloads or changing analysis identities.
+
+### Compatibility
+
+- Preserve format-3 parser behavior, all eight metric definitions, confidence and completeness semantics, default text bytes, JSON schema version 1, exit codes, presets, budgets, and configuration behavior.
+- Continue to reject Godot 3 format 2 and unknown future text formats as positioned typed failures; UID-only paths, imported/binary scenes, and full inherited override semantics remain separate MVP 0.3 work.
+- Keep tagged `v0.2.0` historically unchanged; format-4 support is available from current source until a later release is tagged.
+
+### Validation
+
+- Add format-4 parser, malformed-value, large base64 payload, recursive mixed-format, inherited-base, contribution, tree, check, text, and JSON coverage.
+- Recheck all 139 main scenes at official `godotengine/godot-demo-projects` commit `0db80ca5fd22b9a40e05b9bc1e00af867fb7c712`: the nine former format-4 failures become 8 complete and 1 expected partial result, producing 111 complete, 17 partial, 11 unsupported UID roots, and 0 unexpected fatal outcomes.
+
 ## [0.2.0] — 2026-08-30
 
 Automation and explainability release for tracing where scene weight comes from, qualifying the available static evidence, and reviewing semantic changes between portable reports.
@@ -102,6 +120,7 @@ All built-ins have status `heuristic` and stability `experimental`. They are sta
 
 See [the MVP specification](docs/MVP_0.1_SPEC.md) and [release checklist](docs/RELEASE_0.1.0_CHECKLIST.md) for the frozen contract and verification evidence.
 
+[Unreleased]: https://github.com/stfulldev/deadweight.gdt/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.2.0
 [0.1.1]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.1
 [0.1.0]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.0

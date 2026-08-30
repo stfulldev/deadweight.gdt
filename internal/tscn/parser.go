@@ -33,6 +33,8 @@ type delimiter struct {
 	position Position
 }
 
+const supportedSceneFormats = "format=3 or format=4"
+
 type parser struct {
 	source    string
 	lexer     *lexer
@@ -269,15 +271,25 @@ func (state *parser) applySceneHeader(header sectionHeader) error {
 		return err
 	}
 	if !exists {
-		return newParseError(state.source, header.position, "[gd_scene] must define format=3")
+		return newParseError(state.source, header.position, "[gd_scene] must define %s", supportedSceneFormats)
 	}
 
 	formatNumber, err := strconv.ParseInt(format, 10, 32)
 	if err != nil {
-		return newParseError(state.source, header.attributes["format"].position, "[gd_scene] format must be an integer")
+		return newParseError(
+			state.source,
+			header.attributes["format"].position,
+			"[gd_scene] format must be an integer; supported formats are 3 and 4",
+		)
 	}
-	if formatNumber != 3 {
-		return newParseError(state.source, header.attributes["format"].position, "unsupported Godot scene format %d; expected format=3", formatNumber)
+	if !isSupportedSceneFormat(formatNumber) {
+		return newParseError(
+			state.source,
+			header.attributes["format"].position,
+			"unsupported Godot scene format %d; expected %s",
+			formatNumber,
+			supportedSceneFormats,
+		)
 	}
 
 	uid, _, err := scalarAttribute(state.source, header, "uid")
@@ -288,6 +300,10 @@ func (state *parser) applySceneHeader(header sectionHeader) error {
 	state.document.Header = SceneHeader{Format: int(formatNumber), UID: uid}
 	state.sawScene = true
 	return nil
+}
+
+func isSupportedSceneFormat(format int64) bool {
+	return format == 3 || format == 4
 }
 
 func (state *parser) addExternalResource(header sectionHeader) error {

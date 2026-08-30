@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://formatchild"]
+
+[ext_resource type="PackedScene" uid="uid://formatleaf" path="res://leaf.tscn" id="1_leaf"]
+
+[node name="Child" type="Node3D"]
+[node name="Leaf" parent="." instance=ExtResource("1_leaf")]
