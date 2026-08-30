@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "kind": "profile",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "configuration": {
+    "present": true,
+    "selection": "implicit",
+    "path": "res://.deadweight.gdt.json"
+  },
+  "profile": {
+    "id": "shipping",
+    "chain": [
+      {
+        "kind": "preset",
+        "id": "steam-deck"
+      },
+      {
+        "kind": "profile",
+        "id": "shipping"
+      }
+    ],
+    "metadata": {
+      "name": {
+        "value": "Shipping",
+        "source": {
+          "kind": "profile",
+          "id": "shipping"
+        }
+      },
+      "description": {
+        "value": "MVP 0.2 acceptance policy",
+        "source": {
+          "kind": "profile",
+          "id": "shipping"
+        }
+      },
+      "platform": {
+        "value": "handheld",
+        "source": {
+          "kind": "profile",
+          "id": "shipping"
+        }
+      },
+      "renderer": {
+        "value": "forward_plus",
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      "target_fps": {
+        "value": 60,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      "quality": {
+        "value": "balanced",
+        "source": {
+          "kind": "profile",
+          "id": "shipping"
+        }
+      },
+      "status": {
+        "value": "heuristic",
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      "stability": {
+        "value": "experimental",
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      }
+    },
+    "budgets": [
+      {
+        "metric": "nodes",
+        "limit": 20,
+        "source": {
+          "kind": "project"
+        }
+      },
+      {
+        "metric": "tree_depth",
+        "limit": 20,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      {
+        "metric": "scene_instances",
+        "limit": 250,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      {
+        "metric": "mesh_instances",
+        "limit": 1000,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      {
+        "metric": "lights",
+        "limit": 5,
+        "source": {
+          "kind": "project"
+        }
+      },
+      {
+        "metric": "shadow_lights",
+        "limit": 8,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      {
+        "metric": "external_resources",
+        "limit": 300,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      },
+      {
+        "metric": "scene_dependencies",
+        "limit": 80,
+        "source": {
+          "kind": "preset",
+          "id": "steam-deck"
+        }
+      }
+    ],
+    "fail_on_partial": {
+      "value": false,
+      "source": {
+        "kind": "project"
+      }
+    }
+  }
+}

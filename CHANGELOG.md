@@ -2,17 +2,40 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## [0.2.0] — 2026-08-30
+
+Automation and explainability release for tracing where scene weight comes from, qualifying the available static evidence, and reviewing semantic changes between portable reports.
 
 ### Added
 
-- Add `--format text|json` to `inspect` and `check`, keeping text as the compatible default and preserving all existing exit-code meanings.
-- Publish deterministic, portable schema-version-one `inspect`, `check`, and fatal `error` documents with a committed Draft 2020-12 schema and schema-valid golden fixtures.
-- Retain ordered metrics, checked coverage, grouped diagnostics, effective policy metadata, comparisons, partial policy, and verdict evidence for automation without exposing canonical checkout paths.
-- Add deterministic direct per-scene contribution evidence whose additive occurrence values reconcile to root metrics while depth remains a maximum and shared resources/dependencies remain ownerless unique unions.
-- Add paired inspect-only `--metric` and `--top` selectors for an opt-in top-contributors text/JSON projection, with portable tie-breaking and explicit lower-bound or approximate row reliability.
-- Add `tree <scene>` text and JSON reports that project every authoritative dependency edge once in deterministic portable preorder, compact repeated declarations, and bound diamond expansion with explicit back-references.
-- Retain resolved, inherited, and unresolved edge kind, local multiplicity, classification, resolution context, and conservative reliability without reparsing scenes or changing cycle failures.
+- Add `--format text|json` to report-producing commands and publish deterministic, portable schema-version-one `inspect`, `tree`, `check`, `diff`, `profiles`, `profile`, and fatal `error` documents under a committed Draft 2020-12 schema.
+- Retain ordered metrics, checked coverage, grouped diagnostics, effective policy and verdict evidence, configuration provenance, and portable `res://` identity without exposing canonical checkout paths.
+- Add direct per-scene contributions whose additive occurrence values reconcile to root metrics while depth remains a maximum and shared resources/dependencies remain ownerless unique unions.
+- Add paired inspect-only `--metric` and `--top` selectors for stable ranked contributors with explicit lower-bound or approximate row reliability.
+- Add `tree <scene>` reports that project every authoritative dependency edge once in deterministic preorder, compact repeated declarations, retain unresolved context, and bound diamond expansion with back-references.
+- Add deterministic per-metric confidence with concrete ordered reasons, so unrelated incomplete evidence does not qualify every known metric and missing data is never serialized as a proven zero.
+- Add offline `diff` for compatible schema-v1 inspect, tree, and check reports, including confidence-aware regression/improvement/uncertain assessments and opt-in increase or reliability enforcement.
+- Add `profiles` and `profiles show <id>` to discover custom project policies and explain effective metadata, budgets, partial policy, inheritance chains, and field-level provenance using the same resolver as `check --profile`.
+- Add a compact cross-feature Godot project, complete real-CLI JSON goldens, and byte comparison across different checkout prefixes in the Linux/macOS/Windows test matrix.
+- Add a pinned official `godotengine/godot-demo-projects` hosted E2E job that builds the standalone binary, installs no Godot runtime, and rejects any drift from the reviewed 139-scene summary.
+
+### Compatibility
+
+- Keep the 0.1 default text goldens byte-identical, preserve exit-code meanings `0`, `1`, `2`, and `3`, and leave all eight metric definitions and built-in heuristic preset values unchanged.
+- Keep strict project configuration at schema version 1 and machine-readable reports at schema version 1. The new commands and presentation selectors are explicit opt-ins.
+- Keep the shipped CLI standalone and Go-first: it has no Node.js, OpenSpec, Godot, MCP, or network runtime dependency.
+
+### Validation
+
+- Exercise JSON, contributions, dependency trees, confidence, profile-policy parity, and diffs together through the real CLI and complete committed goldens on every supported operating system.
+- Recheck 139 declared main scenes from official `godotengine/godot-demo-projects` commit `0db80ca5fd22b9a40e05b9bc1e00af867fb7c712`: 103 complete, 16 expected partial, 9 unsupported format-4 roots, 11 unsupported UID roots, and 0 unexpected fatal results.
+- Retain build, test, race, vet, exact-version lint, strict OpenSpec, parser benchmark, and repeated-scene benchmark release gates.
+
+### Deferred
+
+- Deep `.tres` dependency closure is a candidate for 0.2.1.
+- UID resolution, full inherited-scene semantics, a Godot import bridge, imported-scene expansion, and custom class hierarchy resolution remain 0.3 work.
+- An official GitHub Action, SARIF/JUnit/annotations, project-wide scans, release binaries, package-manager distribution, watch mode, caches, and editor/UI integration remain ecosystem work.
 
 ## [0.1.1] — 2026-08-30
 
@@ -79,5 +102,6 @@ All built-ins have status `heuristic` and stability `experimental`. They are sta
 
 See [the MVP specification](docs/MVP_0.1_SPEC.md) and [release checklist](docs/RELEASE_0.1.0_CHECKLIST.md) for the frozen contract and verification evidence.
 
+[0.2.0]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.2.0
 [0.1.1]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.1
 [0.1.0]: https://github.com/stfulldev/deadweight.gdt/releases/tag/v0.1.0
