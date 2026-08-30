@@ -363,13 +363,15 @@ func TestColorPolicyUsesTerminalAndBothSuppressionInputs(t *testing.T) {
 }
 
 type fakeApplication struct {
-	inspect     func(application.InspectRequest) (application.InspectResult, error)
-	tree        func(application.TreeRequest) (application.TreeResult, error)
-	check       func(application.CheckRequest) (application.CheckResult, error)
-	diff        func(application.DiffRequest) (application.DiffResult, error)
-	listPresets func() (application.PresetListResult, error)
-	showPreset  func(string) (application.PresetShowResult, error)
-	calls       int
+	inspect      func(application.InspectRequest) (application.InspectResult, error)
+	tree         func(application.TreeRequest) (application.TreeResult, error)
+	check        func(application.CheckRequest) (application.CheckResult, error)
+	diff         func(application.DiffRequest) (application.DiffResult, error)
+	listPresets  func() (application.PresetListResult, error)
+	showPreset   func(string) (application.PresetShowResult, error)
+	listProfiles func(application.ProfileRequest) (application.ProfileListResult, error)
+	showProfile  func(application.ProfileShowRequest) (application.ProfileShowResult, error)
+	calls        int
 }
 
 func (fake *fakeApplication) Tree(request application.TreeRequest) (application.TreeResult, error) {
@@ -424,6 +426,24 @@ func (fake *fakeApplication) ShowPreset(id string) (application.PresetShowResult
 	}
 
 	return fake.showPreset(id)
+}
+
+func (fake *fakeApplication) ListProfiles(request application.ProfileRequest) (application.ProfileListResult, error) {
+	fake.calls++
+	if fake.listProfiles == nil {
+		return application.ProfileListResult{}, errors.New("unexpected ListProfiles call")
+	}
+
+	return fake.listProfiles(request)
+}
+
+func (fake *fakeApplication) ShowProfile(request application.ProfileShowRequest) (application.ProfileShowResult, error) {
+	fake.calls++
+	if fake.showProfile == nil {
+		return application.ProfileShowResult{}, errors.New("unexpected ShowProfile call")
+	}
+
+	return fake.showProfile(request)
 }
 
 func inspectResult(nodes int64) application.InspectResult {

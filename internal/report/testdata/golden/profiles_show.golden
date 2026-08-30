@@ -1,0 +1,29 @@
+Profile:       shipping
+Configuration: res://.deadweight.gdt.json
+
+Inheritance
+  preset:steam-deck
+  profile:shipping
+
+Metadata
+  name                         Shipping  [profile:shipping]
+  description                Steam Deck-class hardware  [preset:steam-deck]
+  platform                   steam_deck  [preset:steam-deck]
+  renderer                   forward_plus  [preset:steam-deck]
+  target_fps                         60  [preset:steam-deck]
+  quality                           low  [profile:shipping]
+  status                      heuristic  [preset:steam-deck]
+  stability                  experimental  [preset:steam-deck]
+
+Budgets
+  nodes                             100  [profile:shipping]
+  tree_depth                         20  [preset:steam-deck]
+  scene_instances                   250  [preset:steam-deck]
+  mesh_instances                  1,000  [preset:steam-deck]
+  lights                              7  [project]
+  shadow_lights                       8  [preset:steam-deck]
+  external_resources                300  [preset:steam-deck]
+  scene_dependencies                 80  [preset:steam-deck]
+
+Partial policy
+  fail_on_partial                 false  [default]

@@ -1,0 +1,12 @@
+Custom profiles
+Configuration: res://.deadweight.gdt.json
+
+ci
+  Minimal CI policy
+
+shipping
+  Name: Shipping
+  Steam Deck-class hardware
+  Extends: steam-deck
+
+Use `deadweight.gdt profiles show <id>` to inspect effective values.
