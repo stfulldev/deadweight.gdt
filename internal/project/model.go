@@ -7,6 +7,12 @@ type Request struct {
 	ExplicitProject  string
 }
 
+// ContextRequest contains inputs for commands that need a project but no scene.
+type ContextRequest struct {
+	WorkingDirectory string
+	ExplicitProject  string
+}
+
 // Root identifies a discovered Godot project and its marker file.
 type Root struct {
 	Directory   string

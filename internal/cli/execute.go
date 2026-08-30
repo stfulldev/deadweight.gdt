@@ -25,6 +25,8 @@ type Application interface {
 	Diff(application.DiffRequest) (application.DiffResult, error)
 	ListPresets() (application.PresetListResult, error)
 	ShowPreset(string) (application.PresetShowResult, error)
+	ListProfiles(application.ProfileRequest) (application.ProfileListResult, error)
+	ShowProfile(application.ProfileShowRequest) (application.ProfileShowResult, error)
 }
 
 type globalOptions struct {
@@ -150,6 +152,7 @@ func NewRootWithApplicationAndRuntime(
 		newCheckCommand(service, options),
 		newDiffCommand(service, options),
 		newPresetsCommand(service, options),
+		newProfilesCommand(service, options),
 	)
 
 	return root

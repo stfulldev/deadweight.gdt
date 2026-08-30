@@ -92,6 +92,41 @@ func TestDecodeAcceptsMinimalAndFullVersionOneDocuments(t *testing.T) {
 	})
 }
 
+func TestDecodePreservesFailOnPartialPresenceThroughClone(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		document string
+		value    bool
+		declared bool
+	}{
+		{name: "absent", document: `{"version":1}`, value: false, declared: false},
+		{name: "explicit false", document: `{"version":1,"fail_on_partial":false}`, value: false, declared: true},
+		{name: "explicit true", document: `{"version":1,"fail_on_partial":true}`, value: true, declared: true},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			configuration, err := Decode(strings.NewReader(test.document), test.name+".json")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			cloned := configuration.Clone()
+			if cloned.FailOnPartial != test.value || cloned.FailOnPartialDeclared() != test.declared {
+				t.Fatalf(
+					"partial evidence = %t/%t, want %t/%t",
+					cloned.FailOnPartial,
+					cloned.FailOnPartialDeclared(),
+					test.value,
+					test.declared,
+				)
+			}
+		})
+	}
+}
+
 func TestDecodeRetainsPatternValidUnknownDynamicReferences(t *testing.T) {
 	got, err := Decode(strings.NewReader(`{
   "version": 1,

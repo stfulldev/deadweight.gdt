@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "kind": "profiles",
+  "tool": {
+    "name": "deadweight.gdt",
+    "version": "0.2.0-test"
+  },
+  "configuration": {
+    "present": true,
+    "selection": "implicit",
+    "path": "res://.deadweight.gdt.json"
+  },
+  "profiles": {
+    "entries": [
+      {
+        "id": "ci",
+        "name": "",
+        "description": "Minimal CI policy"
+      },
+      {
+        "id": "shipping",
+        "extends": "steam-deck",
+        "name": "Shipping",
+        "description": "Steam Deck-class hardware"
+      }
+    ]
+  }
+}

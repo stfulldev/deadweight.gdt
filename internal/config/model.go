@@ -19,6 +19,14 @@ type Config struct {
 	FailOnPartial bool
 	Budgets       budget.Limits
 	Profiles      map[string]Profile
+
+	failOnPartialDeclared bool
+}
+
+// FailOnPartialDeclared reports whether the configuration explicitly supplied
+// fail_on_partial, including an explicit false value.
+func (configuration Config) FailOnPartialDeclared() bool {
+	return configuration.failOnPartialDeclared
 }
 
 // Profile preserves optional custom-profile declarations for later merging.

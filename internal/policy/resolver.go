@@ -27,12 +27,17 @@ type selectedBase struct {
 }
 
 type resolvedProfile struct {
-	metadata Metadata
-	budgets  budget.Limits
+	metadata        Metadata
+	budgets         budget.Limits
+	metadataSources MetadataSources
+	budgetSources   LimitSources
+	chain           []Layer
 }
 
 func (resolved resolvedProfile) clone() resolvedProfile {
 	resolved.budgets = resolved.budgets.Clone()
+	resolved.budgetSources = resolved.budgetSources.Clone()
+	resolved.chain = append([]Layer(nil), resolved.chain...)
 	return resolved
 }
 
@@ -57,16 +62,8 @@ func Resolve(
 	cliBudgetValues []string,
 ) (Effective, error) {
 	configuration = configuration.Clone()
-	catalog, err := preset.Builtins()
+	resolver, err := resolveGraph(source, configuration.Profiles)
 	if err != nil {
-		return Effective{}, fmt.Errorf("load built-in presets: %w", err)
-	}
-
-	resolver, err := newGraphResolver(source, configuration.Profiles, catalog)
-	if err != nil {
-		return Effective{}, err
-	}
-	if err := resolver.resolveAll(); err != nil {
 		return Effective{}, err
 	}
 
@@ -95,6 +92,101 @@ func Resolve(
 	}
 
 	return effective.Clone(), nil
+}
+
+// ListProfiles validates the complete graph and returns custom profiles in
+// canonical ID order with effective display metadata.
+func ListProfiles(source string, configuration config.Config) ([]ProfileSummary, error) {
+	configuration = configuration.Clone()
+	resolver, err := resolveGraph(source, configuration.Profiles)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ProfileSummary, 0, len(resolver.profileIDs))
+	for _, id := range resolver.profileIDs {
+		declaration := configuration.Profiles[id]
+		resolved := resolver.memo[id]
+		extends := ""
+		if declaration.Extends != nil {
+			extends = *declaration.Extends
+		}
+		result = append(result, ProfileSummary{
+			ID:          id,
+			Extends:     extends,
+			Name:        resolved.metadata.Name,
+			Description: resolved.metadata.Description,
+		})
+	}
+
+	return result, nil
+}
+
+// ExplainProfile resolves one custom profile with the same effective merge
+// semantics as check and returns field-level provenance.
+func ExplainProfile(source string, configuration config.Config, id string) (Explanation, error) {
+	configuration = configuration.Clone()
+	resolver, err := resolveGraph(source, configuration.Profiles)
+	if err != nil {
+		return Explanation{}, err
+	}
+
+	resolved, ok := resolver.memo[id]
+	if !ok {
+		available := "none"
+		if len(resolver.profileIDs) > 0 {
+			available = strings.Join(resolver.profileIDs, ", ")
+		}
+		return Explanation{}, policyError(
+			source,
+			"profile",
+			fmt.Sprintf("unknown custom profile %q; available profiles: %s", id, available),
+		)
+	}
+	resolved = mergeResolvedLimits(resolved, configuration.Budgets, Layer{Kind: LayerProject})
+	if resolved.budgets.Count() == 0 {
+		return Explanation{}, policyError(
+			source,
+			"budgets",
+			"effective policy has no budget; select a profile with budgets or provide a config budget",
+		)
+	}
+
+	failSource := Layer{Kind: LayerDefault}
+	if configuration.FailOnPartialDeclared() {
+		failSource = Layer{Kind: LayerProject}
+	}
+	explanation := Explanation{
+		Effective: Effective{
+			Kind:     KindProfile,
+			ID:       id,
+			Metadata: resolved.metadata,
+			Budgets:  resolved.budgets.Clone(),
+		},
+		FailOnPartial:       configuration.FailOnPartial,
+		FailOnPartialSource: failSource,
+		Chain:               append([]Layer(nil), resolved.chain...),
+		MetadataSources:     resolved.metadataSources,
+		BudgetSources:       resolved.budgetSources.Clone(),
+	}
+
+	return explanation.Clone(), nil
+}
+
+func resolveGraph(source string, profiles map[string]config.Profile) (*graphResolver, error) {
+	catalog, err := preset.Builtins()
+	if err != nil {
+		return nil, fmt.Errorf("load built-in presets: %w", err)
+	}
+	resolver, err := newGraphResolver(source, profiles, catalog)
+	if err != nil {
+		return nil, err
+	}
+	if err := resolver.resolveAll(); err != nil {
+		return nil, err
+	}
+
+	return resolver, nil
 }
 
 func newGraphResolver(
@@ -210,7 +302,7 @@ func (resolver *graphResolver) resolveProfile(id string) (resolvedProfile, error
 		}
 	}
 
-	resolved := mergeProfile(base, profile)
+	resolved := mergeProfile(base, profile, id)
 	resolver.stack = resolver.stack[:len(resolver.stack)-1]
 	delete(resolver.stackIndex, id)
 	resolver.state[id] = visitDone
@@ -308,17 +400,31 @@ func selectBase(source string, configuration config.Config, cli Selector) (selec
 }
 
 func rootCustomProfile() resolvedProfile {
-	return resolvedProfile{metadata: Metadata{
-		Platform:  "custom",
-		Renderer:  "unspecified",
-		TargetFPS: 0,
-		Quality:   "custom",
-		Status:    "custom",
-	}}
+	defaultLayer := Layer{Kind: LayerDefault}
+	return resolvedProfile{
+		metadata: Metadata{
+			Platform:  "custom",
+			Renderer:  "unspecified",
+			TargetFPS: 0,
+			Quality:   "custom",
+			Status:    "custom",
+		},
+		metadataSources: MetadataSources{
+			Name:        defaultLayer,
+			Description: defaultLayer,
+			Platform:    defaultLayer,
+			Renderer:    defaultLayer,
+			TargetFPS:   defaultLayer,
+			Quality:     defaultLayer,
+			Status:      defaultLayer,
+			Stability:   defaultLayer,
+		},
+	}
 }
 
 func profileFromPreset(item preset.Preset) resolvedProfile {
-	return resolvedProfile{
+	layer := Layer{Kind: LayerPreset, ID: item.ID}
+	resolved := resolvedProfile{
 		metadata: Metadata{
 			Name:        item.Name,
 			Description: item.Description,
@@ -329,31 +435,50 @@ func profileFromPreset(item preset.Preset) resolvedProfile {
 			Status:      item.Status,
 			Stability:   item.Stability,
 		},
-		budgets: item.Budgets.Clone(),
+		metadataSources: MetadataSources{
+			Name:        layer,
+			Description: layer,
+			Platform:    layer,
+			Renderer:    layer,
+			TargetFPS:   layer,
+			Quality:     layer,
+			Status:      layer,
+			Stability:   layer,
+		},
+		chain: []Layer{layer},
 	}
+	return mergeResolvedLimits(resolved, item.Budgets, layer)
 }
 
-func mergeProfile(base resolvedProfile, profile config.Profile) resolvedProfile {
+func mergeProfile(base resolvedProfile, profile config.Profile, id string) resolvedProfile {
 	merged := base.clone()
+	layer := Layer{Kind: LayerProfile, ID: id}
 	if profile.Name != nil {
 		merged.metadata.Name = *profile.Name
+		merged.metadataSources.Name = layer
 	}
 	if profile.Description != nil {
 		merged.metadata.Description = *profile.Description
+		merged.metadataSources.Description = layer
 	}
 	if profile.Platform != nil {
 		merged.metadata.Platform = *profile.Platform
+		merged.metadataSources.Platform = layer
 	}
 	if profile.Renderer != nil {
 		merged.metadata.Renderer = *profile.Renderer
+		merged.metadataSources.Renderer = layer
 	}
 	if profile.TargetFPS != nil {
 		merged.metadata.TargetFPS = *profile.TargetFPS
+		merged.metadataSources.TargetFPS = layer
 	}
 	if profile.Quality != nil {
 		merged.metadata.Quality = *profile.Quality
+		merged.metadataSources.Quality = layer
 	}
-	merged.budgets = mergeLimits(merged.budgets, profile.Budgets)
+	merged = mergeResolvedLimits(merged, profile.Budgets, layer)
+	merged.chain = append(merged.chain, layer)
 
 	return merged
 }

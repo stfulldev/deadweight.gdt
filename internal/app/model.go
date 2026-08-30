@@ -43,6 +43,18 @@ type DiffRequest struct {
 	Policy reportdiff.Policy
 }
 
+// ProfileRequest contains project/config inputs for custom-profile commands.
+type ProfileRequest struct {
+	Project string
+	Config  string
+}
+
+// ProfileShowRequest selects one custom profile in a project configuration.
+type ProfileShowRequest struct {
+	ProfileRequest
+	ID string
+}
+
 // InspectResult is the report-ready evidence produced by an inspect flow.
 type InspectResult struct {
 	Project       project.Root
@@ -78,4 +90,18 @@ type PresetListResult struct {
 // PresetShowResult contains one built-in preset selected by stable ID.
 type PresetShowResult struct {
 	Preset preset.Preset
+}
+
+// ProfileListResult contains custom profiles from one selected configuration.
+type ProfileListResult struct {
+	Project      project.Root
+	ConfigSource config.Source
+	Profiles     []policy.ProfileSummary
+}
+
+// ProfileShowResult contains one explained effective custom profile.
+type ProfileShowResult struct {
+	Project      project.Root
+	ConfigSource config.Source
+	Explanation  policy.Explanation
 }

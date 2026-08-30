@@ -27,6 +27,7 @@ type SceneResolver interface {
 type Dependencies struct {
 	WorkingDirectory   func() (string, error)
 	FindProject        func(project.Request) (project.Root, error)
+	FindProjectContext func(project.ContextRequest) (project.Root, error)
 	NewResolver        func(projectRoot string) (SceneResolver, error)
 	LoadConfig         func(projectRoot, explicitPath string) (config.Config, config.Source, bool, error)
 	Analyze            func(SceneResolver, project.ResolvedPath) (analysis.RecursiveResult, error)
@@ -34,6 +35,8 @@ type Dependencies struct {
 	ResolvePartial     func(bool, budget.PartialOverride) (bool, error)
 	Evaluate           func(metrics.Values, budget.Limits, analysis.Reliability, bool) (budget.Evaluation, error)
 	LoadBuiltInPresets func() (preset.Catalog, error)
+	ListProfiles       func(string, config.Config) ([]policy.ProfileSummary, error)
+	ExplainProfile     func(string, config.Config, string) (policy.Explanation, error)
 	ReadFile           func(string) ([]byte, error)
 }
 
@@ -51,6 +54,10 @@ func New(dependencies Dependencies) *Application {
 	if dependencies.FindProject == nil {
 		finder := project.NewFinder()
 		dependencies.FindProject = finder.Find
+	}
+	if dependencies.FindProjectContext == nil {
+		finder := project.NewFinder()
+		dependencies.FindProjectContext = finder.FindContext
 	}
 	if dependencies.NewResolver == nil {
 		dependencies.NewResolver = func(projectRoot string) (SceneResolver, error) {
@@ -79,6 +86,12 @@ func New(dependencies Dependencies) *Application {
 	}
 	if dependencies.LoadBuiltInPresets == nil {
 		dependencies.LoadBuiltInPresets = preset.Builtins
+	}
+	if dependencies.ListProfiles == nil {
+		dependencies.ListProfiles = policy.ListProfiles
+	}
+	if dependencies.ExplainProfile == nil {
+		dependencies.ExplainProfile = policy.ExplainProfile
 	}
 	if dependencies.ReadFile == nil {
 		dependencies.ReadFile = os.ReadFile
@@ -218,6 +231,76 @@ func (application *Application) ShowPreset(id string) (PresetShowResult, error) 
 	}
 
 	return PresetShowResult{Preset: item}, nil
+}
+
+// ListProfiles discovers and validates custom profiles without scene analysis.
+func (application *Application) ListProfiles(request ProfileRequest) (ProfileListResult, error) {
+	root, configuration, source, err := application.profileContext(request)
+	if err != nil {
+		return ProfileListResult{}, err
+	}
+
+	profiles, err := application.dependencies.ListProfiles(source.Path, configuration)
+	if err != nil {
+		return ProfileListResult{}, fmt.Errorf("resolve custom profiles: %w", err)
+	}
+	return ProfileListResult{
+		Project:      root,
+		ConfigSource: source,
+		Profiles:     append([]policy.ProfileSummary(nil), profiles...),
+	}, nil
+}
+
+// ShowProfile resolves one custom profile with provenance and no scene analysis.
+func (application *Application) ShowProfile(request ProfileShowRequest) (ProfileShowResult, error) {
+	if request.ID == "" {
+		return ProfileShowResult{}, fmt.Errorf("custom profile ID is required")
+	}
+	root, configuration, source, err := application.profileContext(request.ProfileRequest)
+	if err != nil {
+		return ProfileShowResult{}, err
+	}
+
+	explanation, err := application.dependencies.ExplainProfile(source.Path, configuration, request.ID)
+	if err != nil {
+		return ProfileShowResult{}, fmt.Errorf("resolve custom profile %q: %w", request.ID, err)
+	}
+	return ProfileShowResult{
+		Project:      root,
+		ConfigSource: source,
+		Explanation:  explanation.Clone(),
+	}, nil
+}
+
+func (application *Application) profileContext(
+	request ProfileRequest,
+) (project.Root, config.Config, config.Source, error) {
+	if err := application.validate(); err != nil {
+		return project.Root{}, config.Config{}, config.Source{}, err
+	}
+	workingDirectory, err := application.dependencies.WorkingDirectory()
+	if err != nil {
+		return project.Root{}, config.Config{}, config.Source{}, fmt.Errorf("resolve working directory: %w", err)
+	}
+	root, err := application.dependencies.FindProjectContext(project.ContextRequest{
+		WorkingDirectory: workingDirectory,
+		ExplicitProject:  request.Project,
+	})
+	if err != nil {
+		return project.Root{}, config.Config{}, config.Source{}, fmt.Errorf("discover project: %w", err)
+	}
+	configuration, source, present, err := application.dependencies.LoadConfig(root.Directory, request.Config)
+	if err != nil {
+		return project.Root{}, config.Config{}, config.Source{}, fmt.Errorf("load configuration: %w", err)
+	}
+	if !present {
+		return project.Root{}, config.Config{}, config.Source{}, fmt.Errorf(
+			"no project configuration found; create %s in the project root or pass --config PATH",
+			config.DefaultFilename,
+		)
+	}
+
+	return root, configuration.Clone(), source, nil
 }
 
 func (application *Application) inspect(request SceneRequest) (InspectResult, config.Config, error) {

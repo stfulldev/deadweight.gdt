@@ -87,6 +87,57 @@ func TestFindExplicitProject(t *testing.T) {
 	}
 }
 
+func TestFindContextUsesExplicitOrNearestWorkingDirectoryProject(t *testing.T) {
+	t.Parallel()
+
+	workspace := t.TempDir()
+	outer := filepath.Join(workspace, "outer")
+	inner := filepath.Join(outer, "nested", "work")
+	explicit := filepath.Join(workspace, "explicit")
+	mustWriteFile(t, filepath.Join(outer, "project.godot"))
+	mustMkdirAll(t, inner)
+	mustWriteFile(t, filepath.Join(explicit, "project.godot"))
+
+	finder := project.NewFinder()
+	nearest, err := finder.FindContext(project.ContextRequest{WorkingDirectory: inner})
+	if err != nil {
+		t.Fatalf("FindContext(nearest) error = %v", err)
+	}
+	if nearest.Directory != outer {
+		t.Fatalf("nearest root = %#v, want %q", nearest, outer)
+	}
+
+	selected, err := finder.FindContext(project.ContextRequest{
+		WorkingDirectory: inner,
+		ExplicitProject:  explicit,
+	})
+	if err != nil {
+		t.Fatalf("FindContext(explicit) error = %v", err)
+	}
+	if selected.Directory != explicit {
+		t.Fatalf("explicit root = %#v, want %q", selected, explicit)
+	}
+}
+
+func TestFindContextRejectsMissingProjectAndInvalidWorkingDirectory(t *testing.T) {
+	t.Parallel()
+
+	finder := project.NewFinder()
+	missingRoot := t.TempDir()
+	_, err := finder.FindContext(project.ContextRequest{WorkingDirectory: missingRoot})
+	_ = assertProjectError(t, err, project.ReasonProjectNotFound)
+
+	for _, cwd := range []string{"", "relative"} {
+		_, err = finder.FindContext(project.ContextRequest{WorkingDirectory: cwd})
+		_ = assertProjectError(t, err, project.ReasonInvalidWorkingDirectory)
+	}
+
+	file := filepath.Join(t.TempDir(), "not-a-directory")
+	mustWriteFile(t, file)
+	_, err = finder.FindContext(project.ContextRequest{WorkingDirectory: file})
+	_ = assertProjectError(t, err, project.ReasonInvalidWorkingDirectory)
+}
+
 func TestFindRejectsInvalidExplicitProjectWithoutFallback(t *testing.T) {
 	t.Parallel()
 

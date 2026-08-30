@@ -85,6 +85,10 @@ deadweight.gdt check res://levels/city.tscn --preset steam-deck
 # Use a custom profile from .deadweight.gdt.json.
 deadweight.gdt check res://levels/city.tscn --profile shipping
 
+# Discover custom profiles and explain their effective values and sources.
+deadweight.gdt profiles
+deadweight.gdt profiles show shipping
+
 # Apply final one-off limits. --budget is repeatable; the last duplicate wins.
 deadweight.gdt check scenes/city.tscn \
   --budget mesh_instances=1600 \
@@ -112,15 +116,17 @@ Filesystem paths may be absolute or relative. For `res://` input without `--proj
 
 ## Versioned JSON reports
 
-The development branch for MVP 0.2 adds a machine-readable format to the two scene commands. Text remains the default and retains its existing bytes and color behavior:
+The MVP 0.2 development branch adds a machine-readable format to report-producing commands. Text remains the default and retains its existing bytes and color behavior:
 
 ```bash
 deadweight.gdt inspect res://levels/city.tscn --format json
 deadweight.gdt tree res://levels/city.tscn --format json
 deadweight.gdt check res://levels/city.tscn --preset steam-deck --format json
+deadweight.gdt profiles --format json
+deadweight.gdt profiles show shipping --format json
 ```
 
-Every document has `schema_version: 1`, a kind discriminator (`inspect`, `tree`, `check`, `diff`, or `error`), and tool name/version metadata. Inspect, tree, and check documents contain all eight ordered metrics, per-metric confidence, checked coverage, grouped diagnostics, portable scene/configuration identity, direct per-scene contributions, and shared unique-union evidence. Tree documents additionally contain the bounded dependency projection described below. Check documents contain effective policy metadata, `fail_on_partial`, every configured comparison in canonical metric order, the exceeded count, and the final verdict. Diff documents contain a portable semantic comparison and its opt-in enforcement outcome.
+Every document has `schema_version: 1`, a kind discriminator (`inspect`, `tree`, `check`, `diff`, `profiles`, `profile`, or `error`), and tool name/version metadata. Inspect, tree, and check documents contain all eight ordered metrics, per-metric confidence, checked coverage, grouped diagnostics, portable scene/configuration identity, direct per-scene contributions, and shared unique-union evidence. Tree documents additionally contain the bounded dependency projection described below. Check documents contain effective policy metadata, `fail_on_partial`, every configured comparison in canonical metric order, the exceeded count, and the final verdict. Diff documents contain a portable semantic comparison and its opt-in enforcement outcome. Custom-profile documents contain a canonical declaration list or one effective profile with its inheritance chain and field-level provenance.
 
 JSON framing follows the command outcome:
 
@@ -261,6 +267,16 @@ Custom profiles live in project configuration and may extend a built-in or anoth
 4. repeated CLI `--budget metric=limit` overrides.
 
 `--preset` selects only built-ins; `--profile` selects only custom profiles. The flags are mutually exclusive.
+
+Discover and audit only the custom namespace from inside the project (or with global `--project`/`--config`):
+
+```bash
+deadweight.gdt profiles
+deadweight.gdt profiles show shipping
+deadweight.gdt profiles show shipping --format json
+```
+
+`profiles` validates the complete custom inheritance graph and lists IDs deterministically. `profiles show` reports the exact effective metadata and budgets used by `check --profile` before CLI overrides, together with `fail_on_partial`, the root-to-child parent chain, and the source layer of every value. Built-in presets remain available only through the project-independent `presets` commands.
 
 ## Configuration
 
